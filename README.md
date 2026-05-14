@@ -6,6 +6,16 @@ Grmemby is an open-source Android media client for Jellyfin/Emby-compatible serv
 
 This project is a GPLv3 fork/rework based on JellyCine, with Grmemby branding and additional playback, server-management, S-code transfer, watch-party, and UI changes.
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/showcase-home.jpg" alt="Grmemby home screen" width="30%" />
+  <img src="docs/screenshots/showcase-player.jpg" alt="Grmemby player screen" width="30%" />
+  <img src="docs/screenshots/showcase-servers.jpg" alt="Grmemby server management screen" width="30%" />
+</p>
+
+> The screenshots above use redacted demo labels for server names, usernames, room codes, and other private UI data.
+
 ## Features
 
 - Jellyfin/Emby-compatible server login and switching

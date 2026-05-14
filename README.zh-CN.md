@@ -6,6 +6,16 @@ Grmemby 是一个开源的 Android 媒体客户端，适用于 Jellyfin/Emby 兼
 
 本项目是基于 JellyCine 的 GPLv3 分支/重构版本，加入了 Grmemby 品牌、播放修复、服务器管理、S 码迁移、一起看、界面体验等调整。
 
+## 界面展示
+
+<p align="center">
+  <img src="docs/screenshots/showcase-home.jpg" alt="Grmemby 首页" width="30%" />
+  <img src="docs/screenshots/showcase-player.jpg" alt="Grmemby 播放器" width="30%" />
+  <img src="docs/screenshots/showcase-servers.jpg" alt="Grmemby 服务器管理" width="30%" />
+</p>
+
+> 上方展示图已使用演示标签替换/遮挡服务器名、用户名、房间号等私有界面信息。
+
 ## 功能特性
 
 - 支持 Jellyfin/Emby 兼容服务器登录与切换
