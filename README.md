@@ -1,5 +1,7 @@
 # Grmemby
 
+**English** | [简体中文](README.zh-CN.md)
+
 Grmemby is an open-source Android media client for Jellyfin/Emby-compatible servers, built with Kotlin and Jetpack Compose. It focuses on a fast phone UI, smooth playback, server management, and portable data import/export.
 
 This project is a GPLv3 fork/rework based on JellyCine, with Grmemby branding and additional playback, server-management, S-code transfer, watch-party, and UI changes.
