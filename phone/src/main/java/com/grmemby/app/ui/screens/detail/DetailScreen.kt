@@ -1,0 +1,3813 @@
+package com.grmemby.app.ui.screens.detail
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import com.grmemby.app.ui.components.glass.GlassDropdownMenu
+import com.grmemby.app.ui.components.glass.GlassDropdownMenuItem
+import com.grmemby.app.ui.components.glass.GlassOptionContainer
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.grmemby.app.R
+import com.grmemby.shared.util.image.JellyfinPosterImage
+import com.grmemby.shared.util.image.imageTagFor
+import com.grmemby.shared.util.image.rememberImageUrl
+import com.grmemby.data.model.BaseItemDto
+import com.grmemby.data.model.BaseItemPerson
+import com.grmemby.data.model.MediaSourceInfo
+import com.grmemby.data.model.MediaStream
+import com.grmemby.data.model.SeerrRecommendationTitle
+import com.grmemby.data.repository.AuthRepositoryProvider
+import com.grmemby.data.repository.MediaRepository
+import com.grmemby.data.repository.MediaRepositoryProvider
+import com.grmemby.data.repository.SeerrRepository
+import kotlinx.coroutines.flow.first
+import android.content.res.Configuration
+import com.grmemby.app.ui.screens.player.PlayerScreen
+import com.grmemby.detail.CodecUtils
+import com.grmemby.app.ui.components.common.CastSection
+import com.grmemby.app.ui.components.common.DownloadActionMenu
+import com.grmemby.app.ui.components.common.DownloadContent
+import com.grmemby.app.ui.components.common.DownloadLabelContent
+import com.grmemby.app.ui.components.common.SeerPersonRole
+import com.grmemby.app.ui.components.common.SeerTitleCard
+import com.grmemby.app.ui.components.common.fetchSeerCreditTitles
+import com.grmemby.app.ui.components.common.filterSeerTitlesForRow
+import com.grmemby.shared.ui.components.common.OverviewSection
+import com.grmemby.app.ui.components.common.ScreenCastButton
+import com.grmemby.shared.ui.components.common.ScreenWrapper
+import com.grmemby.shared.ui.components.common.ShimmerEffect
+import com.grmemby.app.ui.components.common.canResumeDownloads
+import com.grmemby.app.ui.components.common.downloadButtonVisualState
+import com.grmemby.app.ui.components.common.hasActiveDownloads
+import com.grmemby.app.ui.components.common.pausableItemIds
+import com.grmemby.app.ui.components.common.isPausedDownloadState
+import com.grmemby.app.ui.components.common.rememberDownloadPanelProgress
+import com.grmemby.app.ui.components.common.rememberDownloadPanelState
+import com.grmemby.app.cast.CastController
+import com.grmemby.app.download.BatchDownloadCandidate
+import com.grmemby.app.download.BatchDownloadEstimate
+import com.grmemby.app.download.DownloadRepositoryProvider
+import com.grmemby.app.download.DownloadStatus
+import com.grmemby.app.download.ItemDownloadState
+import com.grmemby.app.ui.screens.cast.CastPlayback
+import com.grmemby.app.ui.screens.cast.activeCastArtworkUrl
+import com.grmemby.app.ui.screens.cast.loadCastPlaybackData
+import com.grmemby.app.ui.screens.dashboard.DashboardPalette
+import com.grmemby.app.watchparty.PlaybackEvent
+import com.grmemby.app.watchparty.WatchPartyRepository
+import com.grmemby.app.watchparty.WatchPartySessionStore
+import com.grmemby.app.watchparty.shouldPublishPrepareFromDetailPlay
+import com.grmemby.player.core.defaultSubtitleDisplayTitle
+import com.grmemby.player.core.mediaStreamDisplayTitles
+import com.grmemby.player.preferences.PlayerPreferences
+import com.grmemby.shared.playback.PlaybackRefreshSignals
+import com.grmemby.app.ui.components.common.DetailBackdropHero
+import com.grmemby.app.ui.components.common.DetailBackdropHeroStyle
+import com.grmemby.app.ui.components.common.containerHeightDp
+import com.grmemby.app.ui.components.common.containerWidthDp
+import com.grmemby.app.ui.components.common.detailContentMaxWidth
+import com.grmemby.app.ui.components.common.detailActionWidth
+import com.grmemby.app.ui.components.common.isTabletDetailLayout
+import com.grmemby.app.ui.components.common.isTabletLayout
+import java.util.Locale
+import androidx.media3.common.util.UnstableApi
+import androidx.activity.compose.BackHandler
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+
+private val heroOverlayGradient = arrayOf(
+    0.0f to Color.Transparent,
+    0.62f to Color.Transparent,
+    0.78f to Color.Black.copy(alpha = 0.08f),
+    0.88f to Color.Black.copy(alpha = 0.18f),
+    0.95f to Color.Black.copy(alpha = 0.30f),
+    1.0f to Color.Black.copy(alpha = 0.46f)
+)
+
+private val heroBottomFadeGradient = arrayOf(
+    0.0f to Color.Transparent,
+    0.12f to Color.Transparent,
+    0.34f to Color.Black.copy(alpha = 0.05f),
+    0.56f to Color.Black.copy(alpha = 0.16f),
+    0.74f to Color.Black.copy(alpha = 0.34f),
+    0.88f to Color.Black.copy(alpha = 0.62f),
+    0.96f to Color.Black.copy(alpha = 0.86f),
+    1.0f to Color.Black
+)
+
+private val HillsDetailSurface = Color(0xFF2C3650)
+private val HillsDetailWarmSurface = Color(0xFF3B4358)
+private val HillsDetailBlueSurface = Color(0xFF2C3650)
+private val HillsDetailGreenSurface = Color(0xFF273F46)
+private val HillsDetailDeepSurface = Color(0xFF1E293F)
+private val HillsDetailGlassSurface = Color(0xD823304A)
+private val HillsDetailGlassSurfaceSoft = Color(0xAA2C3650)
+private val HillsDetailAccent = Color(0xFFDDE9F8)
+private val HillsDetailAccentText = Color(0xFF172033)
+private val HillsDetailSecondaryText = Color(0xFFD6DEEA)
+
+private fun blendDetailColor(base: Color, overlay: Color, amount: Float): Color {
+    val t = amount.coerceIn(0f, 1f)
+    return Color(
+        red = base.red * (1f - t) + overlay.red * t,
+        green = base.green * (1f - t) + overlay.green * t,
+        blue = base.blue * (1f - t) + overlay.blue * t,
+        alpha = 1f
+    )
+}
+
+private fun detailSurfaceForItem(item: BaseItemDto): Color {
+    val text = buildString {
+        append(item.name.orEmpty())
+        append(' ')
+        append(item.originalTitle.orEmpty())
+        append(' ')
+        append(item.seriesName.orEmpty())
+        append(' ')
+        append(item.genres.orEmpty().joinToString(" "))
+    }.lowercase()
+
+    return when {
+        listOf("动画", "anime", "animation", "奇幻", "fantasy", "科幻", "sci-fi", "science fiction").any { it in text } -> HillsDetailBlueSurface
+        listOf("动作", "冒险", "crime", "thriller", "action", "adventure").any { it in text } -> HillsDetailWarmSurface
+        listOf("纪录", "documentary", "nature").any { it in text } -> HillsDetailGreenSurface
+        listOf("美食", "food", "cooking", "料理").any { it in text } -> Color(0xFF35435B)
+        else -> {
+            val palette = listOf(
+                HillsDetailSurface,
+                HillsDetailBlueSurface,
+                HillsDetailWarmSurface,
+                HillsDetailGreenSurface,
+                Color(0xFF334157),
+                Color(0xFF35435B)
+            )
+            val key = item.id ?: item.seriesId ?: item.name ?: "detail"
+            palette[(key.hashCode() and Int.MAX_VALUE) % palette.size]
+        }
+    }
+}
+
+private fun hillsSeasonName(season: BaseItemDto?): String {
+    if (season == null) return "选季"
+    val rawName = season.name?.takeIf { it.isNotBlank() }
+    return rawName
+        ?: season.indexNumber?.let { "第${it}季" }
+        ?: "选季"
+}
+
+private const val PersonCreditPrefetchCount = 3
+private const val PersonCreditLocalLimit = 80
+private const val PersonCreditRowLimit = 16
+
+private data class PersonCreditRow(
+    val personId: String,
+    val personName: String,
+    val localTitles: List<BaseItemDto>,
+    val seerrTitles: List<SeerrRecommendationTitle>
+) {
+    val hasTitles: Boolean get() = localTitles.isNotEmpty() || seerrTitles.isNotEmpty()
+}
+
+private fun BaseItemPerson.isDirectorCredit(): Boolean {
+    return listOf(role, type).any { field ->
+        field?.contains("Director", ignoreCase = true) == true
+    }
+}
+
+private fun BaseItemPerson.isActorCredit(): Boolean {
+    val isDirector = isDirectorCredit()
+    val actorLike = listOf(role, type).any { field ->
+        field?.contains("Actor", ignoreCase = true) == true ||
+            field?.contains("Star", ignoreCase = true) == true ||
+            field?.contains("Cast", ignoreCase = true) == true
+    }
+    return !isDirector && (actorLike || type.isNullOrBlank())
+}
+
+private fun personCreditKey(people: List<BaseItemPerson>): String {
+    return people.joinToString(separator = "|") { person ->
+        listOf(person.id.orEmpty(), person.name.orEmpty(), person.role.orEmpty(), person.type.orEmpty())
+            .joinToString(separator = ":")
+    }
+}
+
+private fun primaryActorCreditPeople(people: List<BaseItemPerson>?): List<BaseItemPerson> {
+    return people.orEmpty()
+        .asSequence()
+        .filter { person -> !person.id.isNullOrBlank() && !person.name.isNullOrBlank() && person.isActorCredit() }
+        .distinctBy { person -> person.id ?: person.name }
+        .take(PersonCreditPrefetchCount)
+        .toList()
+}
+
+private suspend fun loadPersonCreditRow(
+    item: BaseItemDto,
+    person: BaseItemPerson,
+    role: SeerPersonRole,
+    activeServerId: String?,
+    mediaRepository: MediaRepository,
+    seerrRepository: SeerrRepository
+): PersonCreditRow? = coroutineScope {
+    val personId = person.id?.takeIf { it.isNotBlank() } ?: return@coroutineScope null
+    val personName = person.name?.takeIf { it.isNotBlank() } ?: return@coroutineScope null
+    val targetType = if (item.type.equals("Movie", ignoreCase = true)) "Movie" else "Series"
+
+    val localTitlesDeferred = async {
+        mediaRepository.getItemsForPerson(personId, limit = PersonCreditLocalLimit).getOrNull()
+            ?.asSequence()
+            ?.filter { title ->
+                !title.id.isNullOrBlank() &&
+                    title.id != item.id &&
+                    !title.name.isNullOrBlank() &&
+                    title.type.equals(targetType, ignoreCase = true)
+            }
+            ?.distinctBy { title -> title.id }
+            ?.take(PersonCreditRowLimit)
+            ?.toList()
+    }
+    val rawSeerrTitlesDeferred = async {
+        fetchSeerCreditTitles(
+            item = item,
+            personId = personId,
+            role = role,
+            activeServerId = activeServerId,
+            mediaRepository = mediaRepository,
+            seerrRepository = seerrRepository
+        )
+    }
+
+    val localTitles = localTitlesDeferred.await() ?: run {
+        rawSeerrTitlesDeferred.cancel()
+        return@coroutineScope null
+    }
+    val pendingSeerrTitles = filterSeerTitlesForRow(
+        seerrTitles = rawSeerrTitlesDeferred.await(),
+        baseTitles = localTitles,
+        item = item
+    )
+
+    val resolvedLocalItems = pendingSeerrTitles
+        .mapNotNull { seerrTitle ->
+            val jellyfinMediaId = seerrTitle.jellyfinMediaId
+                ?.takeIf { it.isNotBlank() && it != item.id }
+                ?: return@mapNotNull null
+            val localItem = mediaRepository.getItemById(jellyfinMediaId).getOrNull()
+                ?: return@mapNotNull null
+            val localItemId = localItem.id?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            localItemId to localItem
+        }
+        .distinctBy { (localItemId, _) -> localItemId }
+
+    val resolvedLocalIds = resolvedLocalItems.map { (localItemId, _) -> localItemId }.toSet()
+    val combinedLocalTitles = (localTitles + resolvedLocalItems.map { (_, localItem) -> localItem })
+        .distinctBy { title -> title.id ?: title.name.orEmpty() }
+        .take(PersonCreditRowLimit)
+    val remainingSeerrTitles = pendingSeerrTitles.filterNot { seerrTitle ->
+        seerrTitle.jellyfinMediaId?.let(resolvedLocalIds::contains) == true
+    }
+
+    PersonCreditRow(
+        personId = personId,
+        personName = personName,
+        localTitles = combinedLocalTitles,
+        seerrTitles = remainingSeerrTitles
+    )
+}
+
+
+@UnstableApi
+@Composable
+fun DetailScreenContainer(
+    itemId: String,
+    onBackPressed: () -> Unit = {},
+    onNavigateToDetail: (String) -> Unit = {},
+    onNavigateToPerson: (String) -> Unit = {}
+) {
+    val context = LocalContext.current
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val watchPartyRepository = remember { WatchPartyRepository() }
+    val playerPreferences = remember { PlayerPreferences(context) }
+
+    var item by remember { mutableStateOf<BaseItemDto?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var showPlayer by remember { mutableStateOf(false) }
+    var playbackItemId by remember { mutableStateOf<String?>(null) }
+    var availablePreviousEpisodeId by remember { mutableStateOf<String?>(null) }
+    var availableNextEpisodeId by remember { mutableStateOf<String?>(null) }
+    var preferredAudioStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var preferredSubtitleStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var trackSelectionSyncVersion by rememberSaveable { mutableStateOf(0) }
+
+    // Navigation state
+    var currentScreen by remember { mutableStateOf("detail") }
+    var seasonDetailData by remember { mutableStateOf<Triple<String, String, String?>?>(null) }
+    var episodeDetailId by remember { mutableStateOf<String?>(null) }
+    var episodeItem by remember { mutableStateOf<BaseItemDto?>(null) }
+    var isEpisodeLoading by remember { mutableStateOf(false) }
+    var episodeError by remember { mutableStateOf<String?>(null) }
+    var castingDisplay by remember { mutableStateOf(false) }
+    var castDisplayItem by remember { mutableStateOf<BaseItemDto?>(null) }
+    var castDisplayArtworkUrl by remember { mutableStateOf<String?>(null) }
+    var castDisplayStreams by remember { mutableStateOf<List<MediaStream>>(emptyList()) }
+    var castDisplayAudioStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var castDisplaySubtitleStreamIndex by rememberSaveable { mutableStateOf<Int?>(null) }
+    var castTracks by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val castPlaybackState by CastController.playbackState.collectAsState()
+    val latestPlaybackStopEvent by PlaybackRefreshSignals.latestStopEvent.collectAsState()
+    val inheritedDashboardSurface by DashboardPalette.surfaceColor.collectAsState()
+
+    LaunchedEffect(context) {
+        CastController.ensureInitialized(context)
+    }
+
+    suspend fun castDisplayState(castItemId: String) {
+        val activeItem = when {
+            castDisplayItem?.id == castItemId -> castDisplayItem
+            episodeItem?.id == castItemId -> episodeItem
+            item?.id == castItemId -> item
+            else -> mediaRepository.getItemById(castItemId).getOrNull()
+        }
+
+        val playbackData = loadCastPlaybackData(
+            mediaRepository = mediaRepository,
+            playerPreferences = playerPreferences,
+            itemId = castItemId,
+            activeItem = activeItem
+        )
+        castDisplayItem = playbackData.item
+        castDisplayArtworkUrl = playbackData.artworkUrl
+        castDisplayStreams = playbackData.streams
+        castDisplayAudioStreamIndex = playbackData.selectedAudioStreamIndex
+        castDisplaySubtitleStreamIndex = playbackData.selectedSubtitleStreamIndex
+    }
+
+    fun localPlayer(targetItemId: String) {
+        playbackItemId = targetItemId
+        castingDisplay = false
+        showPlayer = true
+    }
+
+    fun publishWatchPartyPrepareFromDetailPlay(targetItemId: String, targetItem: BaseItemDto?) {
+        val activeSession = WatchPartySessionStore.get() ?: return
+        if (!activeSession.isHost) return
+        val pendingPlaySession = activeSession.copy(startPlaybackOnNextPlayer = true)
+        WatchPartySessionStore.set(pendingPlaySession)
+        if (!pendingPlaySession.shouldPublishPrepareFromDetailPlay()) return
+
+        val title = targetItem?.name?.takeIf { it.isNotBlank() }
+            ?: targetItem?.seriesName?.takeIf { it.isNotBlank() }
+            ?: "Grmemby"
+        scope.launch {
+            runCatching {
+                watchPartyRepository.selectMedia(
+                    roomId = pendingPlaySession.roomId,
+                    memberId = pendingPlaySession.memberId,
+                    itemId = targetItemId,
+                    title = title
+                )
+                watchPartyRepository.updatePlayback(
+                    roomId = pendingPlaySession.roomId,
+                    memberId = pendingPlaySession.memberId,
+                    mediaId = targetItemId,
+                    event = PlaybackEvent.PREPARE,
+                    positionMs = 0L,
+                    isPlaying = false
+                )
+            }
+        }
+    }
+
+    fun openCastingDisplay() {
+        if (!castPlaybackState.isConnected) return
+        val castItemId = castPlaybackState.currentItemId
+            ?: castDisplayItem?.id
+        castingDisplay = true
+        if (castItemId.isNullOrBlank()) return
+        scope.launch {
+            castDisplayState(castItemId = castItemId)
+        }
+    }
+
+    fun updateCastStreams(
+        audioStreamIndex: Int?,
+        subtitleStreamIndex: Int?
+    ) {
+        if (castTracks) return
+        val castItemId = castPlaybackState.currentItemId ?: castDisplayItem?.id ?: return
+        val metadataItem = castDisplayItem
+
+        scope.launch {
+            castTracks = true
+            try {
+                val castResult = CastController.castItem(
+                    context = context,
+                    mediaRepository = mediaRepository,
+                    itemId = castItemId,
+                    title = metadataItem?.name ?: castPlaybackState.mediaTitle,
+                    subtitle = metadataItem?.seriesName ?: castPlaybackState.mediaSubtitle,
+                    itemType = metadataItem?.type,
+                    artworkUrl = castPlaybackState.artworkUrl ?: castDisplayArtworkUrl,
+                    startPositionMs = castPlaybackState.positionMs,
+                    audioStreamIndex = audioStreamIndex,
+                    subtitleStreamIndex = subtitleStreamIndex
+                )
+
+                if (castResult.isSuccess) {
+                    castDisplayAudioStreamIndex = audioStreamIndex
+                    castDisplaySubtitleStreamIndex = subtitleStreamIndex
+                    playerPreferences.setPreferredAudioStreamIndex(castItemId, audioStreamIndex)
+                    playerPreferences.setPreferredSubtitleStreamIndex(
+                        castItemId,
+                        subtitleStreamIndex
+                    )
+                }
+            } finally {
+                castTracks = false
+            }
+        }
+    }
+
+    fun startPlaybackForItem(
+        targetItem: BaseItemDto?,
+        fallbackItemId: String,
+        audioStreamIndex: Int?,
+        subtitleStreamIndex: Int?
+    ) {
+        val activeItemId = targetItem?.id?.takeIf { it.isNotBlank() } ?: fallbackItemId
+        preferredAudioStreamIndex = audioStreamIndex
+        preferredSubtitleStreamIndex = subtitleStreamIndex
+        publishWatchPartyPrepareFromDetailPlay(activeItemId, targetItem)
+
+        scope.launch {
+            if (castPlaybackState.isConnected) {
+                val startPositionMs = (targetItem?.userData?.playbackPositionTicks ?: 0L) / 10_000L
+                val artworkUrl = activeCastArtworkUrl(
+                    mediaRepository = mediaRepository,
+                    item = targetItem,
+                    fallbackItemId = activeItemId
+                )
+                val castResult = CastController.castItem(
+                    context = context,
+                    mediaRepository = mediaRepository,
+                    itemId = activeItemId,
+                    title = targetItem?.name,
+                    subtitle = targetItem?.seriesName,
+                    itemType = targetItem?.type,
+                    artworkUrl = artworkUrl,
+                    startPositionMs = startPositionMs,
+                    audioStreamIndex = audioStreamIndex,
+                    subtitleStreamIndex = subtitleStreamIndex
+                )
+
+                if (castResult.isSuccess) {
+                    playbackItemId = activeItemId
+                    castDisplayItem = targetItem
+                    castDisplayArtworkUrl = artworkUrl
+                    castDisplayAudioStreamIndex = audioStreamIndex
+                    castDisplaySubtitleStreamIndex = subtitleStreamIndex
+                    showPlayer = false
+                    castingDisplay = true
+                    castDisplayState(castItemId = activeItemId)
+                } else {
+                    localPlayer(activeItemId)
+                }
+            } else {
+                localPlayer(activeItemId)
+            }
+        }
+    }
+
+    val handleBackNavigation: () -> Unit = {
+        when {
+            castingDisplay -> {
+                castingDisplay = false
+            }
+
+            showPlayer -> {
+                val playedItemId = playbackItemId ?: itemId
+                preferredAudioStreamIndex =
+                    playerPreferences.getPreferredAudioStreamIndex(playedItemId)
+                preferredSubtitleStreamIndex =
+                    playerPreferences.getPreferredSubtitleStreamIndex(playedItemId)
+                trackSelectionSyncVersion += 1
+                showPlayer = false
+                playbackItemId = null
+            }
+
+            currentScreen == "episode" && seasonDetailData != null -> {
+                currentScreen = "season"
+            }
+
+            currentScreen == "season" -> {
+                currentScreen = "detail"
+            }
+
+            else -> onBackPressed()
+        }
+    }
+
+    suspend fun adjacentEpisodeId(currentItemId: String, offset: Int): String? {
+        val currentItem = mediaRepository.getItemById(currentItemId).getOrNull() ?: return null
+        if (!currentItem.type.equals("Episode", ignoreCase = true)) return null
+
+        val seriesId = currentItem.seriesId ?: return null
+        val episodesResult = if (!currentItem.seasonId.isNullOrBlank()) {
+            mediaRepository.getEpisodes(seriesId = seriesId, seasonId = currentItem.seasonId)
+        } else {
+            mediaRepository.getEpisodes(seriesId = seriesId)
+        }
+        val orderedEpisodes = episodesResult
+            .getOrNull()
+            ?.sortedWith(
+                compareBy<BaseItemDto>(
+                    { it.parentIndexNumber ?: Int.MAX_VALUE },
+                    { it.indexNumber ?: Int.MAX_VALUE },
+                    { it.name.orEmpty() },
+                    { it.id.orEmpty() }
+                )
+            )
+            .orEmpty()
+
+        if (orderedEpisodes.isEmpty()) return null
+        val currentIndex = orderedEpisodes.indexOfFirst { it.id == currentItemId }
+        val targetIndex = currentIndex + offset
+        if (currentIndex < 0 || targetIndex !in orderedEpisodes.indices) return null
+
+        val adjacentEpisodeId = orderedEpisodes[targetIndex].id
+        return adjacentEpisodeId?.takeIf { it.isNotBlank() && it != currentItemId }
+    }
+
+    suspend fun nextEpisodeId(completedItemId: String): String? {
+        return adjacentEpisodeId(completedItemId, offset = 1)
+    }
+
+    suspend fun previousEpisodeId(currentItemId: String): String? {
+        return adjacentEpisodeId(currentItemId, offset = -1)
+    }
+
+    fun playNextEpisode(nextEpisodeId: String) {
+        playbackItemId = nextEpisodeId
+        availablePreviousEpisodeId = null
+        availableNextEpisodeId = null
+        if (currentScreen == "episode") {
+            episodeDetailId = nextEpisodeId
+        }
+    }
+
+    fun playPreviousEpisode(previousEpisodeId: String) {
+        playbackItemId = previousEpisodeId
+        availablePreviousEpisodeId = null
+        availableNextEpisodeId = null
+        if (currentScreen == "episode") {
+            episodeDetailId = previousEpisodeId
+        }
+    }
+
+    LaunchedEffect(itemId) {
+        try {
+            isLoading = true
+            error = null
+
+            val result = mediaRepository.getItemById(itemId)
+            result.fold(
+                onSuccess = { fetchedItem ->
+                    item = fetchedItem
+                    isLoading = false
+                },
+                onFailure = { exception ->
+                    error = exception.message
+                    isLoading = false
+                }
+            )
+        } catch (e: Exception) {
+            error = e.message
+            isLoading = false
+        }
+    }
+
+    LaunchedEffect(currentScreen, episodeDetailId) {
+        val targetEpisodeId = episodeDetailId
+        if (currentScreen != "episode" || targetEpisodeId.isNullOrBlank()) {
+            return@LaunchedEffect
+        }
+
+        try {
+            isEpisodeLoading = true
+            episodeError = null
+            episodeItem = null
+
+            val result = mediaRepository.getItemById(targetEpisodeId)
+            result.fold(
+                onSuccess = { fetchedEpisode ->
+                    episodeItem = fetchedEpisode
+                    isEpisodeLoading = false
+                },
+                onFailure = { exception ->
+                    episodeError = exception.message
+                    episodeItem = null
+                    isEpisodeLoading = false
+                }
+            )
+        } catch (e: Exception) {
+            episodeError = e.message
+            episodeItem = null
+            isEpisodeLoading = false
+        }
+    }
+
+    LaunchedEffect(showPlayer, playbackItemId, itemId) {
+        if (!showPlayer) {
+            availablePreviousEpisodeId = null
+            availableNextEpisodeId = null
+            return@LaunchedEffect
+        }
+
+        val activePlaybackId = playbackItemId ?: itemId
+        availablePreviousEpisodeId = previousEpisodeId(activePlaybackId)
+        availableNextEpisodeId = nextEpisodeId(activePlaybackId)
+    }
+
+    LaunchedEffect(latestPlaybackStopEvent?.timestampMs) {
+        val playbackStopEvent = latestPlaybackStopEvent ?: return@LaunchedEffect
+        val refreshedItemId = playbackStopEvent.itemId ?: return@LaunchedEffect
+
+        if (item?.id == refreshedItemId || itemId == refreshedItemId) {
+            mediaRepository.getItemById(refreshedItemId).getOrNull()?.let { refreshedItem ->
+                item = refreshedItem
+            }
+        }
+
+        if (episodeItem?.id == refreshedItemId || episodeDetailId == refreshedItemId) {
+            mediaRepository.getItemById(refreshedItemId).getOrNull()?.let { refreshedEpisode ->
+                episodeItem = refreshedEpisode
+            }
+        }
+    }
+
+    LaunchedEffect(castPlaybackState.isConnected, castPlaybackState.isCastingMedia) {
+        if (castingDisplay && !castPlaybackState.isConnected) {
+            castingDisplay = false
+        }
+        if (!castPlaybackState.isConnected) {
+            castDisplayStreams = emptyList()
+            castDisplayItem = null
+            castDisplayArtworkUrl = null
+            castDisplayAudioStreamIndex = null
+            castDisplaySubtitleStreamIndex = null
+            castTracks = false
+        }
+    }
+
+    BackHandler {
+        handleBackNavigation()
+    }
+
+    if (error != null) {
+        LaunchedEffect(Unit) {
+            onBackPressed()
+        }
+    } else {
+        if (showPlayer) {
+            val activePlaybackId = playbackItemId ?: itemId
+            val initialPlaybackItemDetails = when (activePlaybackId) {
+                item?.id -> item
+                episodeItem?.id -> episodeItem
+                else -> null
+            }
+            PlayerScreen(
+                mediaId = activePlaybackId,
+                initialItemDetails = initialPlaybackItemDetails,
+                preferredAudioStreamIndex = preferredAudioStreamIndex,
+                preferredSubtitleStreamIndex = preferredSubtitleStreamIndex,
+                onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
+                    preferredAudioStreamIndex = audioStreamIndex
+                    preferredSubtitleStreamIndex = subtitleStreamIndex
+                },
+                onBackPressed = {
+                    val playedItemId = playbackItemId ?: itemId
+                    preferredAudioStreamIndex =
+                        playerPreferences.getPreferredAudioStreamIndex(playedItemId)
+                    preferredSubtitleStreamIndex =
+                        playerPreferences.getPreferredSubtitleStreamIndex(playedItemId)
+                    trackSelectionSyncVersion += 1
+                    showPlayer = false
+                    playbackItemId = null
+                },
+                previousEpisodeId = availablePreviousEpisodeId,
+                onWatchPreviousEpisode = ::playPreviousEpisode,
+                nextEpisodeId = availableNextEpisodeId,
+                onWatchNextEpisode = ::playNextEpisode,
+                onPlaybackCompleted = { completedItemId ->
+                    scope.launch {
+                        val nextEpisodeId = nextEpisodeId(completedItemId) ?: return@launch
+                        playNextEpisode(nextEpisodeId)
+                    }
+                }
+            )
+        } else {
+            AnimatedContent(
+                targetState = currentScreen,
+                transitionSpec = {
+                    fadeIn(
+                        animationSpec = tween(400, easing = FastOutSlowInEasing)
+                    ) togetherWith fadeOut(
+                        animationSpec = tween(300, easing = LinearOutSlowInEasing)
+                    )
+                },
+                label = "screen_navigation"
+            ) { screen ->
+                when (screen) {
+                    "detail" -> {
+                        ScreenWrapper(isActive = true) {
+                            val currentItem = item
+                            if (currentItem != null) {
+                                DetailScreen(
+                                    item = currentItem,
+                                    isLoading = isLoading,
+                                    inheritedSurfaceColor = inheritedDashboardSurface,
+                                    trackSelectionSyncVersion = trackSelectionSyncVersion,
+                                    onBackPressed = handleBackNavigation,
+                                    onPlayClick = { audioStreamIndex, subtitleStreamIndex ->
+                                        startPlaybackForItem(
+                                            targetItem = currentItem,
+                                            fallbackItemId = itemId,
+                                            audioStreamIndex = audioStreamIndex,
+                                            subtitleStreamIndex = subtitleStreamIndex
+                                        )
+                                    },
+                                    onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
+                                        preferredAudioStreamIndex = audioStreamIndex
+                                        preferredSubtitleStreamIndex = subtitleStreamIndex
+                                    },
+                                    onSimilarItemClick = { selectedItemId ->
+                                        onNavigateToDetail(selectedItemId)
+                                    },
+                                    onPersonClick = { personId ->
+                                        onNavigateToPerson(personId)
+                                    },
+                                    onCastButtonClick = { openCastingDisplay() },
+                                    onSeasonClick = { seriesId, seasonId, seasonName ->
+                                        seasonDetailData = Triple(seriesId, seasonId, seasonName)
+                                        currentScreen = "season"
+                                    }
+                                )
+                            } else {
+                                DetailScreenSkeleton(
+                                    onBackPressed = handleBackNavigation,
+                                    inheritedSurfaceColor = inheritedDashboardSurface
+                                )
+                            }
+                        }
+                    }
+
+                    "season" -> {
+                        seasonDetailData?.let { (seriesId, seasonId, seasonName) ->
+                            ScreenWrapper(isActive = true) {
+                                SeasonDetailScreen(
+                                    seriesId = seriesId,
+                                    seasonId = seasonId,
+                                    seasonName = seasonName,
+                                    inheritedSurfaceColor = inheritedDashboardSurface,
+                                    onBackPressed = handleBackNavigation,
+                                    onEpisodeClick = { episodeId ->
+                                        episodeDetailId = episodeId
+                                        currentScreen = "episode"
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    "episode" -> {
+                        episodeDetailId?.let { episodeId ->
+                            ScreenWrapper(isActive = true) {
+                                when {
+                                    episodeError != null -> {
+                                        LaunchedEffect(episodeError) {
+                                            if (seasonDetailData != null) {
+                                                currentScreen = "season"
+                                                episodeError = null
+                                            } else {
+                                                onBackPressed()
+                                            }
+                                        }
+                                    }
+
+                                    episodeItem != null -> {
+                                        DetailScreen(
+                                            item = episodeItem!!,
+                                            isLoading = isEpisodeLoading,
+                                            inheritedSurfaceColor = inheritedDashboardSurface,
+                                            trackSelectionSyncVersion = trackSelectionSyncVersion,
+                                            onBackPressed = handleBackNavigation,
+                                            onPlayClick = { audioStreamIndex, subtitleStreamIndex ->
+                                                startPlaybackForItem(
+                                                    targetItem = episodeItem,
+                                                    fallbackItemId = episodeId,
+                                                    audioStreamIndex = audioStreamIndex,
+                                                    subtitleStreamIndex = subtitleStreamIndex
+                                                )
+                                            },
+                                            onPreferredStreamIndexesChanged = { audioStreamIndex, subtitleStreamIndex ->
+                                                preferredAudioStreamIndex = audioStreamIndex
+                                                preferredSubtitleStreamIndex = subtitleStreamIndex
+                                            },
+                                            onSimilarItemClick = { selectedItemId ->
+                                                onNavigateToDetail(selectedItemId)
+                                            },
+                                            onPersonClick = { personId ->
+                                                onNavigateToPerson(personId)
+                                            },
+                                            onCastButtonClick = { openCastingDisplay() },
+                                            onSeasonClick = { seriesId, seasonId, seasonName ->
+                                                seasonDetailData =
+                                                    Triple(seriesId, seasonId, seasonName)
+                                                currentScreen = "season"
+                                            }
+                                        )
+                                    }
+
+                                    else -> {
+                                        DetailScreenSkeleton(
+                                            onBackPressed = handleBackNavigation,
+                                            inheritedSurfaceColor = inheritedDashboardSurface
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (castingDisplay) {
+            CastPlayback(
+                castState = castPlaybackState,
+                streams = castDisplayStreams,
+                fallbackArtworkUrl = castDisplayArtworkUrl,
+                selectedAudioStreamIndex = castDisplayAudioStreamIndex,
+                selectedSubtitleStreamIndex = castDisplaySubtitleStreamIndex,
+                isTrackSelectionUpdating = castTracks,
+                onDismissRequest = { castingDisplay = false },
+                onTogglePlayPause = { CastController.togglePlayPause(context) },
+                onStopCasting = { CastController.stopPlayback(context) },
+                onDisconnect = {
+                    CastController.disconnect(context)
+                    castingDisplay = false
+                },
+                onSeekTo = { seekPosition -> CastController.seekTo(context, seekPosition) },
+                onTrackSelectionChanged = { audioStreamIndex, subtitleStreamIndex ->
+                    updateCastStreams(
+                        audioStreamIndex = audioStreamIndex,
+                        subtitleStreamIndex = subtitleStreamIndex
+                    )
+                }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DetailScreen(
+    item: BaseItemDto,
+    isLoading: Boolean = false,
+    inheritedSurfaceColor: Color? = null,
+    trackSelectionSyncVersion: Int = 0,
+    onBackPressed: () -> Unit = {},
+    onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
+    onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
+    onSimilarItemClick: (String) -> Unit = {},
+    onPersonClick: (String) -> Unit = {},
+    onCastButtonClick: () -> Unit = {},
+    onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
+) {
+    DetailContent(
+        item = item,
+        isLoading = isLoading,
+        inheritedSurfaceColor = inheritedSurfaceColor,
+        trackSelectionSyncVersion = trackSelectionSyncVersion,
+        onBackPressed = onBackPressed,
+        onPlayClick = onPlayClick,
+        onPreferredStreamIndexesChanged = onPreferredStreamIndexesChanged,
+        onSimilarItemClick = onSimilarItemClick,
+        onPersonClick = onPersonClick,
+        onCastButtonClick = onCastButtonClick,
+        onSeasonClick = onSeasonClick
+    )
+}
+
+@Composable
+fun DetailContent(
+    item: BaseItemDto,
+    isLoading: Boolean = false,
+    inheritedSurfaceColor: Color? = null,
+    trackSelectionSyncVersion: Int = 0,
+    onBackPressed: () -> Unit = {},
+    onPlayClick: (Int?, Int?) -> Unit = { _, _ -> },
+    onPreferredStreamIndexesChanged: (Int?, Int?) -> Unit = { _, _ -> },
+    onSimilarItemClick: (String) -> Unit = {},
+    onPersonClick: (String) -> Unit = {},
+    onCastButtonClick: () -> Unit = {},
+    onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
+) {
+    val context = LocalContext.current
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
+    val seerrRepository = remember(context) { SeerrRepository(context) }
+    val downloadRepository = remember { DownloadRepositoryProvider.getInstance(context) }
+    val playerPreferences = remember { PlayerPreferences(context) }
+    val coroutineScope = rememberCoroutineScope()
+    val castPlaybackState by CastController.playbackState.collectAsState()
+    val activeServerId by authRepository.getActiveServerId()
+        .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
+    val screenWidthDp = containerWidthDp()
+    val screenHeightDp = containerHeightDp()
+    val isWidescreenLayout = isTabletLayout(screenWidthDp)
+    val useTabletBackdropLayout = isTabletDetailLayout(
+        screenWidthDp = screenWidthDp,
+        screenHeightDp = screenHeightDp
+    )
+    val metadataScrollState = rememberScrollState()
+    val isEpisode = item.type == "Episode"
+    val dashboardSurfaceColor by DashboardPalette.surfaceColor.collectAsState()
+    val detailSurfaceTarget = inheritedSurfaceColor ?: dashboardSurfaceColor
+    val detailSurfaceColor by animateColorAsState(
+        targetValue = detailSurfaceTarget,
+        animationSpec = tween(durationMillis = 320),
+        label = "detail_surface"
+    )
+    val detailMidSurface = remember(detailSurfaceColor) {
+        blendDetailColor(detailSurfaceColor, Color.Black, 0.16f)
+    }
+    val detailDeepSurface = remember(detailSurfaceColor) {
+        blendDetailColor(detailSurfaceColor, Color.Black, 0.46f)
+    }
+    val detailAccentColor = remember(detailSurfaceColor) {
+        blendDetailColor(detailSurfaceColor, Color.White, 0.64f)
+    }
+    val detailAccentTextColor = remember(detailSurfaceColor) {
+        blendDetailColor(detailSurfaceColor, Color.Black, 0.76f)
+    }
+    val detailPrimaryButtonColor = remember(detailSurfaceColor) {
+        blendDetailColor(detailSurfaceColor, Color.White, 0.18f).copy(alpha = 0.84f)
+    }
+    val detailPrimaryButtonContentColor = Color.White.copy(alpha = 0.96f)
+    val detailGlassButtonColor = remember(detailSurfaceColor) {
+        blendDetailColor(detailSurfaceColor, Color.Black, 0.22f).copy(alpha = 0.78f)
+    }
+    val detailGlassButtonSoftColor = remember(detailSurfaceColor) {
+        blendDetailColor(detailSurfaceColor, Color.White, 0.10f).copy(alpha = 0.26f)
+    }
+    val detailBorderColor = remember(detailSurfaceColor) {
+        blendDetailColor(detailSurfaceColor, Color.White, 0.42f).copy(alpha = 0.20f)
+    }
+    val detailSecondaryTextColor = remember(detailSurfaceColor) {
+        blendDetailColor(detailSurfaceColor, Color.White, 0.72f).copy(alpha = 0.84f)
+    }
+    val detailHeroOverlayGradient = remember(detailSurfaceColor) {
+        arrayOf(
+            0.0f to Color.Transparent,
+            0.58f to Color.Transparent,
+            0.76f to detailSurfaceColor.copy(alpha = 0.12f),
+            0.88f to detailSurfaceColor.copy(alpha = 0.34f),
+            1.0f to detailSurfaceColor.copy(alpha = 0.62f)
+        )
+    }
+    val detailHeroBottomFadeGradient = remember(detailSurfaceColor) {
+        arrayOf(
+            0.0f to Color.Transparent,
+            0.14f to Color.Transparent,
+            0.34f to detailSurfaceColor.copy(alpha = 0.08f),
+            0.54f to detailSurfaceColor.copy(alpha = 0.22f),
+            0.72f to detailSurfaceColor.copy(alpha = 0.44f),
+            0.88f to detailSurfaceColor.copy(alpha = 0.72f),
+            1.0f to detailSurfaceColor
+        )
+    }
+    val episodeHeaderText = remember(
+        item.type,
+        item.parentIndexNumber,
+        item.indexNumber,
+        item.name
+    ) {
+        episodeHeaderText(item)
+    }
+    var heroImageCandidates by remember { mutableStateOf<List<String>>(emptyList()) }
+    var heroImageIndex by remember(item.id) { mutableStateOf(0) }
+    val backdropImageUrl = heroImageCandidates.getOrNull(heroImageIndex)
+    var logoImageUrl by remember(item.id) { mutableStateOf<String?>(null) }
+    var logoLookup by remember(item.id) { mutableStateOf(true) }
+    var logoLoadError by remember(item.id) { mutableStateOf(false) }
+    val effectiveMediaStreams = remember(item.mediaStreams, item.mediaSources) {
+        val fromSources = item.mediaSources.orEmpty().flatMap { it.mediaStreams.orEmpty() }
+        if (fromSources.isNotEmpty()) fromSources else item.mediaStreams.orEmpty()
+    }
+    val savedAudioOption = remember(item.id, effectiveMediaStreams, trackSelectionSyncVersion) {
+        val currentItemId = item.id ?: return@remember null
+        AudioStreamIndex(
+            streams = effectiveMediaStreams,
+            streamIndex = playerPreferences.getPreferredAudioStreamIndex(currentItemId)
+        )
+    }
+    val savedSubtitleOption = remember(item.id, effectiveMediaStreams, trackSelectionSyncVersion) {
+        val currentItemId = item.id ?: return@remember null
+        SubtitleStreamIndex(
+            streams = effectiveMediaStreams,
+            streamIndex = playerPreferences.getPreferredSubtitleStreamIndex(currentItemId)
+        )
+    }
+    val initialVideoOption = remember(item.id, effectiveMediaStreams) {
+        buildVideoOptions(effectiveMediaStreams).firstOrNull().orEmpty()
+    }
+    val initialAudioOption = remember(item.id, effectiveMediaStreams, savedAudioOption) {
+        savedAudioOption ?: buildAudioOptions(effectiveMediaStreams).firstOrNull().orEmpty()
+    }
+    val initialSubtitleOption = remember(item.id, effectiveMediaStreams, savedSubtitleOption) {
+        savedSubtitleOption ?: buildDefaultSubtitleOption(effectiveMediaStreams)
+    }
+    var selectedVideo by rememberSaveable(item.id) { mutableStateOf(initialVideoOption) }
+    var selectedAudio by rememberSaveable(item.id, trackSelectionSyncVersion) {
+        mutableStateOf(
+            initialAudioOption
+        )
+    }
+    var selectedSubtitle by rememberSaveable(item.id, trackSelectionSyncVersion) {
+        mutableStateOf(
+            initialSubtitleOption
+        )
+    }
+    val runtimeTicks = item.runTimeTicks
+    val playbackPositionTicks = item.userData?.playbackPositionTicks ?: 0L
+    val isPartiallyWatched =
+        runtimeTicks != null && playbackPositionTicks > 0L && playbackPositionTicks < runtimeTicks
+    val playButtonText = if (isPartiallyWatched) {
+        val remainingTicks = (runtimeTicks - playbackPositionTicks).coerceAtLeast(0L)
+        "${CodecUtils.formatRuntime(remainingTicks)} left"
+    } else {
+        "播放"
+    }
+    val resumeProgress = if (runtimeTicks != null && runtimeTicks > 0) {
+        (playbackPositionTicks.toFloat() / runtimeTicks.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    val logoFallbackTitle = if (isEpisode) {
+        item.seriesName?.takeIf { it.isNotBlank() }
+            ?: item.name?.takeIf { it.isNotBlank() }
+            ?: "未知"
+    } else {
+        item.name?.takeIf { it.isNotBlank() } ?: "未知"
+    }
+    val reserveLogoSpace = (!logoImageUrl.isNullOrBlank() && !logoLoadError) || logoLookup
+    val showTitleFallback = !logoLookup && (logoImageUrl.isNullOrBlank() || logoLoadError)
+    val genresText = remember(item.genres) {
+        item.genres?.takeIf { it.isNotEmpty() }?.joinToString(", ")
+    }
+    val descriptionTagline = remember(item.taglines) {
+        item.taglines?.firstOrNull { !it.isNullOrBlank() }
+    }
+    val directors = remember(item.people) {
+        item.people?.filter { person -> person.isDirectorCredit() }.orEmpty()
+    }
+    val primaryDirector = directors.firstOrNull()
+    val primaryActors = remember(item.people) { primaryActorCreditPeople(item.people) }
+    val primaryActorsKey = remember(primaryActors) { personCreditKey(primaryActors) }
+    var directorTitles by remember(item.id, directors.map { it.id }.joinToString()) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
+    var seerrDirectorTitles by remember(item.id, directors.map { it.id }.joinToString()) { mutableStateOf<List<SeerrRecommendationTitle>>(emptyList()) }
+    var actorCreditRows by remember(item.id, primaryActorsKey) { mutableStateOf<List<PersonCreditRow>>(emptyList()) }
+    val hasDescriptionContent = !item.overview.isNullOrBlank() || !descriptionTagline.isNullOrBlank()
+    val canDownloadItem = item.id != null && item.canDownload != false
+    val pausedDownloadMessage = stringResource(R.string.downloads_status_paused)
+    val itemDownloadStateFlow = item.id?.let { downloadRepository.observeItemDownload(it) }
+    val itemDownloadState by (itemDownloadStateFlow?.collectAsState()
+        ?: remember(item.id) { mutableStateOf(ItemDownloadState()) })
+    val isPausedDownload = isPausedDownloadState(itemDownloadState, pausedDownloadMessage)
+    val hasActiveDownload = itemDownloadState.status == DownloadStatus.DOWNLOADING ||
+            itemDownloadState.status == DownloadStatus.QUEUED
+    var downloadErrorDialogMessage by remember(item.id) { mutableStateOf<String?>(null) }
+    var downloadActionMenu by remember(
+        item.id,
+        itemDownloadState.status,
+        itemDownloadState.message
+    ) {
+        mutableStateOf(false)
+    }
+    var previousDownloadStatus by remember(item.id) { mutableStateOf(itemDownloadState.status) }
+    var seriesQueueInProgress by remember(item.id) { mutableStateOf(false) }
+    var seriesStorageSelectionDialogState by remember(item.id) {
+        mutableStateOf<SeriesSeasonSelectionDialogState?>(
+            null
+        )
+    }
+    val trackedDownloads by downloadRepository.observeTrackedDownloads()
+        .collectAsState(initial = emptyList())
+    var isFavorite by remember(item.id, item.userData?.isFavorite) {
+        mutableStateOf(item.userData?.isFavorite == true)
+    }
+    var similarItems by remember(item.id) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
+    var moreFromSeasonSeasons by remember(item.id, item.seriesId) {
+        mutableStateOf<List<BaseItemDto>>(emptyList())
+    }
+    var selectedMoreFromSeasonId by remember(item.id, item.seasonId) {
+        mutableStateOf(item.seasonId?.takeIf { it.isNotBlank() })
+    }
+    var moreFromSeasonEpisodes by remember(item.id, item.seriesId, selectedMoreFromSeasonId) {
+        mutableStateOf<List<BaseItemDto>>(emptyList())
+    }
+    val seriesDownloadEntries = remember(item.id, item.type, trackedDownloads) {
+        val seriesId = item.id
+        if (item.type != "Series" || seriesId.isNullOrBlank()) {
+            emptyList()
+        } else {
+            trackedDownloads.filter { it.item?.seriesId == seriesId }
+        }
+    }
+    val seriesDownload = rememberDownloadPanelState(entries = seriesDownloadEntries)
+    val hasActiveSeriesDownloads = seriesDownload.hasActiveDownloads
+    val canResumeSeriesDownloads = seriesDownload.canResumeDownloads
+    var seriesDownloadActionMenu by remember(
+        item.id,
+        seriesDownload.status,
+        seriesDownload.activeItemIds.size,
+        seriesDownload.pausedItemIds.size
+    ) { mutableStateOf(false) }
+
+    fun toggleFavorite() {
+        val currentItemId = item.id ?: return
+        val targetState = !isFavorite
+        coroutineScope.launch {
+            val result = mediaRepository.setFavoriteStatus(
+                itemId = currentItemId,
+                isFavorite = targetState
+            )
+            if (result.isSuccess) {
+                isFavorite = targetState
+            }
+        }
+    }
+
+    val animatedDownloadProgress by animateFloatAsState(
+        targetValue = when (itemDownloadState.status) {
+            DownloadStatus.QUEUED -> itemDownloadState.progress.coerceIn(0f, 0.99f)
+            DownloadStatus.DOWNLOADING -> itemDownloadState.progress.coerceIn(0f, 0.99f)
+            DownloadStatus.COMPLETED -> 1f
+            else -> 0f
+        },
+        animationSpec = tween(durationMillis = 350),
+        label = "detail_download_progress"
+    )
+    val animatedSeriesDownloadProgress = rememberDownloadPanelProgress(
+        panelState = seriesDownload,
+        label = "series_download_progress"
+    )
+    val layout = detailScreenLayoutSpec(
+        isWidescreenLayout = isWidescreenLayout,
+        useTabletBackdropLayout = useTabletBackdropLayout,
+        screenWidthDp = screenWidthDp,
+        screenHeightDp = screenHeightDp
+    )
+    val contentFadeStart = if (useTabletBackdropLayout && layout.backdropHeight.value > 0f) {
+        (
+            ((layout.contentTopPadding + layout.logoContainerHeight) - 56.dp).value /
+                layout.backdropHeight.value
+            ).coerceIn(0f, 1f)
+    } else {
+        null
+    }
+    val onBackdropLoadError: (Boolean) -> Unit = { hasError ->
+        if (
+            hasError &&
+            backdropImageUrl == heroImageCandidates.getOrNull(heroImageIndex) &&
+            heroImageIndex < heroImageCandidates.lastIndex
+        ) {
+            heroImageIndex += 1
+        }
+    }
+    LaunchedEffect(itemDownloadState.status) {
+        if (
+            previousDownloadStatus != DownloadStatus.FAILED &&
+            itemDownloadState.status == DownloadStatus.FAILED
+        ) {
+            downloadErrorDialogMessage = downloadFailureDialogMessage(state = itemDownloadState)
+        }
+        previousDownloadStatus = itemDownloadState.status
+    }
+
+    LaunchedEffect(item.id) {
+        if (item.id == null) {
+            logoLookup = false
+            return@LaunchedEffect
+        }
+        heroImageCandidates = heroImageCandidates(
+            item = item,
+            mediaRepository = mediaRepository
+        )
+        heroImageIndex = 0
+
+        logoLookup = true
+        logoLoadError = false
+        try {
+            logoImageUrl = logoImage(
+                item = item,
+                mediaRepository = mediaRepository
+            )
+        } finally {
+            logoLookup = false
+        }
+    }
+
+    LaunchedEffect(item.id) {
+        val currentItemId = item.id
+        if (currentItemId.isNullOrBlank()) {
+            similarItems = emptyList()
+            return@LaunchedEffect
+        }
+
+        mediaRepository.getSimilarItems(itemId = currentItemId, limit = 16).fold(
+            onSuccess = { items ->
+                similarItems = items.filter { !it.id.isNullOrBlank() }
+            },
+            onFailure = {
+                similarItems = emptyList()
+            }
+        )
+    }
+
+    LaunchedEffect(item.id, primaryDirector?.id, primaryActorsKey, activeServerId) {
+        val directorDeferred = primaryDirector?.let { director ->
+            async {
+                loadPersonCreditRow(
+                    item = item,
+                    person = director,
+                    role = SeerPersonRole.DIRECTOR,
+                    activeServerId = activeServerId,
+                    mediaRepository = mediaRepository,
+                    seerrRepository = seerrRepository
+                )
+            }
+        }
+        val actorDeferreds = primaryActors.map { actor ->
+            async {
+                loadPersonCreditRow(
+                    item = item,
+                    person = actor,
+                    role = SeerPersonRole.ACTOR,
+                    activeServerId = activeServerId,
+                    mediaRepository = mediaRepository,
+                    seerrRepository = seerrRepository
+                )
+            }
+        }
+
+        actorCreditRows = actorDeferreds
+            .mapNotNull { deferred -> deferred.await() }
+            .filter { row -> row.hasTitles }
+
+        val directorRow = directorDeferred?.await()
+        if (directorRow == null || !directorRow.hasTitles) {
+            directorTitles = emptyList()
+            seerrDirectorTitles = emptyList()
+        } else {
+            directorTitles = directorRow.localTitles
+            seerrDirectorTitles = directorRow.seerrTitles
+        }
+    }
+
+    LaunchedEffect(item.id, item.type, item.seriesId, item.seasonId) {
+        if (!isEpisode) {
+            moreFromSeasonSeasons = emptyList()
+            selectedMoreFromSeasonId = null
+            return@LaunchedEffect
+        }
+
+        val seriesId = item.seriesId?.takeIf { it.isNotBlank() }
+        if (seriesId.isNullOrBlank()) {
+            moreFromSeasonSeasons = emptyList()
+            selectedMoreFromSeasonId = item.seasonId?.takeIf { it.isNotBlank() }
+            return@LaunchedEffect
+        }
+
+        val seasons = mediaRepository.getSeasons(seriesId)
+            .getOrNull()
+            .orEmpty()
+            .filter { !it.id.isNullOrBlank() }
+            .sortedWith(
+                compareBy<BaseItemDto>(
+                    { it.indexNumber ?: Int.MAX_VALUE },
+                    { it.name.orEmpty() },
+                    { it.id.orEmpty() }
+                )
+            )
+        moreFromSeasonSeasons = seasons
+        if (selectedMoreFromSeasonId.isNullOrBlank()) {
+            selectedMoreFromSeasonId = item.seasonId?.takeIf { it.isNotBlank() }
+                ?: seasons.firstOrNull()?.id
+        }
+    }
+
+    LaunchedEffect(item.id, item.type, item.seriesId, item.seasonId, selectedMoreFromSeasonId, item.parentIndexNumber) {
+        if (!isEpisode) {
+            moreFromSeasonEpisodes = emptyList()
+            return@LaunchedEffect
+        }
+
+        val seriesId = item.seriesId?.takeIf { it.isNotBlank() }
+        if (seriesId.isNullOrBlank()) {
+            moreFromSeasonEpisodes = emptyList()
+            return@LaunchedEffect
+        }
+
+        val seasonId = selectedMoreFromSeasonId?.takeIf { it.isNotBlank() }
+            ?: item.seasonId?.takeIf { it.isNotBlank() }
+        val result = if (seasonId != null) {
+            mediaRepository.getEpisodes(seriesId = seriesId, seasonId = seasonId)
+        } else {
+            mediaRepository.getEpisodes(seriesId = seriesId)
+        }
+
+        val selectedIsCurrentSeason = seasonId == null || seasonId == item.seasonId
+        val loadedEpisodes = result.getOrNull().orEmpty()
+        val episodesWithCurrent = if (selectedIsCurrentSeason) {
+            (loadedEpisodes + item)
+        } else {
+            loadedEpisodes
+        }
+
+        moreFromSeasonEpisodes = episodesWithCurrent
+            .asSequence()
+            .filter { episode ->
+                when {
+                    seasonId != null -> episode.seasonId == seasonId
+                    item.parentIndexNumber != null -> episode.parentIndexNumber == item.parentIndexNumber
+                    else -> true
+                }
+            }
+            .filter { episode -> !episode.id.isNullOrBlank() }
+            .distinctBy { episode -> episode.id }
+            .sortedWith(
+                compareBy<BaseItemDto>(
+                    { it.indexNumber ?: Int.MAX_VALUE },
+                    { it.name.orEmpty() },
+                    { it.id.orEmpty() }
+                )
+            )
+            .toList()
+    }
+
+    val selectedMoreFromSeason = remember(moreFromSeasonSeasons, selectedMoreFromSeasonId) {
+        moreFromSeasonSeasons.firstOrNull { it.id == selectedMoreFromSeasonId }
+    }
+    val moreFromSeasonTitle = remember(selectedMoreFromSeason, item.seasonName, item.parentIndexNumber, selectedMoreFromSeasonId) {
+        val seasonLabel = selectedMoreFromSeason?.name?.takeIf { it.isNotBlank() }
+            ?: selectedMoreFromSeason?.indexNumber?.let { "Season $it" }
+            ?: item.seasonName?.takeIf { it.isNotBlank() }
+            ?: item.parentIndexNumber?.let { "Season $it" }
+            ?: "Season"
+        "More from $seasonLabel"
+    }
+
+    val videoOptions = remember(effectiveMediaStreams) { buildVideoOptions(effectiveMediaStreams) }
+    val audioOptions = remember(effectiveMediaStreams) { buildAudioOptions(effectiveMediaStreams) }
+    val subtitleOptions =
+        remember(effectiveMediaStreams) { buildSubtitleOptions(effectiveMediaStreams) }
+    val defaultSubtitleOption =
+        remember(effectiveMediaStreams) { buildDefaultSubtitleOption(effectiveMediaStreams) }
+    val codecBadges = CodecBadges(
+        streams = effectiveMediaStreams,
+        selectedVideo = selectedVideo,
+        selectedAudio = selectedAudio
+    )
+    val videoInlineMetaText = remember(
+        item.mediaSources,
+        effectiveMediaStreams
+    ) {
+        buildVideoInlineText(
+            mediaSources = item.mediaSources.orEmpty(),
+            streams = effectiveMediaStreams
+        )
+    }
+
+    fun persistTrackSelection(audioOption: String, subtitleOption: String): Pair<Int?, Int?> {
+        val audioStreamIndex = AudioStreamIndex(
+            streams = effectiveMediaStreams,
+            selectedOption = audioOption
+        )
+        val subtitleStreamIndex = SubtitleStreamIndex(
+            streams = effectiveMediaStreams,
+            selectedOption = subtitleOption
+        )
+        item.id?.let { currentItemId ->
+            playerPreferences.setPreferredAudioStreamIndex(currentItemId, audioStreamIndex)
+            playerPreferences.setPreferredSubtitleStreamIndex(currentItemId, subtitleStreamIndex)
+        }
+        onPreferredStreamIndexesChanged(audioStreamIndex, subtitleStreamIndex)
+        return audioStreamIndex to subtitleStreamIndex
+    }
+
+    val onVideoOptionSelected: (String) -> Unit = { option ->
+        selectedVideo = option
+    }
+    val onAudioOptionSelected: (String) -> Unit = { option ->
+        selectedAudio = option
+        persistTrackSelection(
+            audioOption = option,
+            subtitleOption = selectedSubtitle
+        )
+    }
+    val onSubtitleOptionSelected: (String) -> Unit = { option ->
+        selectedSubtitle = option
+        persistTrackSelection(
+            audioOption = selectedAudio,
+            subtitleOption = option
+        )
+    }
+
+    LaunchedEffect(videoOptions, audioOptions, subtitleOptions, defaultSubtitleOption) {
+        if (selectedVideo !in videoOptions) {
+            selectedVideo = videoOptions.firstOrNull().orEmpty()
+        }
+        if (selectedAudio !in audioOptions) {
+            selectedAudio = audioOptions.firstOrNull().orEmpty()
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        detailSurfaceColor,
+                        detailBlendColor(detailSurfaceColor, Color.Black, 0.08f),
+                        detailBlendColor(detailSurfaceColor, Color.Black, 0.18f)
+                    )
+                )
+            )
+    ) {
+        if (useTabletBackdropLayout) {
+            DetailBackdropHero(
+                imageUrl = backdropImageUrl,
+                contentDescription = item.name,
+                heroHeight = layout.backdropHeight,
+                style = DetailBackdropHeroStyle.TabletBackdrop,
+                bottomFadeHeight = 0.dp,
+                contentFadeStartFraction = contentFadeStart,
+                onErrorStateChange = onBackdropLoadError
+            ) {
+                DetailHeroCastButtonOverlay(onCastButtonClick = onCastButtonClick)
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Transparent),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
+            contentPadding = PaddingValues(bottom = 24.dp)
+        ) {
+
+            if (!useTabletBackdropLayout) {
+                item {
+                    DetailBackdropHero(
+                        imageUrl = backdropImageUrl,
+                        contentDescription = item.name,
+                        heroHeight = layout.heroHeight,
+                        bottomFadeHeight = 156.dp,
+                        overlayGradient = detailHeroOverlayGradient,
+                        bottomFadeGradient = detailHeroBottomFadeGradient,
+                        onErrorStateChange = onBackdropLoadError
+                    ) {
+                        DetailHeroCastButtonOverlay(onCastButtonClick = onCastButtonClick)
+                    }
+                }
+            }
+
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = layout.horizontalPadding)
+                        .padding(top = layout.contentTopPadding)
+                        .offset(y = layout.headerOffset)
+                ) {
+                    Column(
+                        modifier = if (layout.contentMaxWidth != null) {
+                            Modifier
+                                .fillMaxWidth()
+                                .widthIn(max = layout.contentMaxWidth)
+                        } else {
+                            Modifier.fillMaxWidth()
+                        }
+                    ) {
+                        if (reserveLogoSpace) {
+                            Box(
+                                modifier = Modifier
+                                    .height(layout.logoContainerHeight)
+                                    .fillMaxWidth()
+                            ) {
+                                if (!logoImageUrl.isNullOrBlank()) {
+                                    JellyfinPosterImage(
+                                        imageUrl = if (isLoading) null else logoImageUrl,
+                                        contentDescription = item.name,
+                                        modifier = Modifier
+                                            .fillMaxWidth(0.94f)
+                                            .height(layout.logoContainerHeight)
+                                            .align(Alignment.CenterStart),
+                                        context = context,
+                                        contentScale = ContentScale.Fit,
+                                        alignment = Alignment.CenterStart,
+                                        onErrorStateChange = { hasError ->
+                                            logoLoadError = hasError
+                                        }
+                                    )
+                                }
+                            }
+                        } else if (showTitleFallback) {
+                            Text(
+                                text = logoFallbackTitle,
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                lineHeight = 30.sp
+                            )
+                        }
+
+                        if (isEpisode) {
+                            episodeHeaderText?.let { header ->
+                                Text(
+                                    text = header,
+                                    fontSize = 14.sp,
+                                    color = Color.White.copy(alpha = 0.88f),
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (isWidescreenLayout) {
+                                        Modifier.horizontalScroll(metadataScrollState)
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                        ) {
+                            item.communityRating?.let { rating ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Star,
+                                        contentDescription = "评分",
+                                        tint = Color(0xFFFF4D4F),
+                                        modifier = Modifier.size(17.dp)
+                                    )
+                                    Text(
+                                        text = String.format(Locale.US, "%.1f", rating),
+                                        fontSize = 14.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+
+                            item.productionYear?.let { year ->
+                                Text(
+                                    text = year.toString(),
+                                    fontSize = 14.sp,
+                                    color = detailSecondaryTextColor.copy(alpha = 0.86f),
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1
+                                )
+                            }
+
+                            item.runTimeTicks?.let { ticks ->
+                                Text(
+                                    text = CodecUtils.formatRuntime(ticks),
+                                    fontSize = 14.sp,
+                                    color = detailSecondaryTextColor.copy(alpha = 0.86f),
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1
+                                )
+                            }
+
+                            val officialRatingLabel =
+                                item.officialRating?.takeIf { it.isNotBlank() } ?: "NR"
+                            Surface(
+                                color = Color.Transparent,
+                                shape = RoundedCornerShape(5.dp),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.30f))
+                            ) {
+                                Text(
+                                    text = officialRatingLabel,
+                                    fontSize = 13.sp,
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                    maxLines = 1
+                                )
+                            }
+
+                            if (isWidescreenLayout && !genresText.isNullOrBlank()) {
+                                Text(
+                                    text = genresText,
+                                    fontSize = 14.sp,
+                                    color = Color.White.copy(alpha = 0.85f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        if (!isWidescreenLayout && !genresText.isNullOrBlank()) {
+                            Text(
+                                text = genresText,
+                                fontSize = 14.sp,
+                                color = Color.White.copy(alpha = 0.85f),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp)
+                            )
+                        }
+
+                        if (castPlaybackState.isConnected) {
+                            Surface(
+                                color = detailGlassButtonColor,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Cast,
+                                        contentDescription = null,
+                                        tint = detailAccentColor,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = if (castPlaybackState.isCastingMedia) {
+                                            "Casting to ${castPlaybackState.deviceName?.takeIf { it.isNotBlank() } ?: "device"}"
+                                        } else {
+                                            "Connected to ${castPlaybackState.deviceName?.takeIf { it.isNotBlank() } ?: "device"}"
+                                        },
+                                        fontSize = 12.sp,
+                                        color = detailSecondaryTextColor,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+
+                        if (codecBadges.hasAnyBadges) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp)
+                            ) {
+                                if (codecBadges.has4K) {
+                                    item {
+                                        CapabilityBadge(text = "4K", surfaceColor = detailSurfaceColor)
+                                    }
+                                }
+
+                                if (codecBadges.hdrBadgeText.isNotBlank()) {
+                                    item {
+                                        CapabilityBadge(
+                                            text = codecBadges.hdrBadgeText,
+                                            icon = if (codecBadges.hdrBadgeText.equals(
+                                                    "Dolby Vision",
+                                                    ignoreCase = true
+                                                )
+                                            ) null else Icons.Rounded.HdrOn,
+                                            customIcon = if (codecBadges.hdrBadgeText.equals(
+                                                    "Dolby Vision",
+                                                    ignoreCase = true
+                                                )
+                                            ) R.drawable.ic_dolby_logo else null,
+                                            iconTintUnspecified = codecBadges.hdrBadgeText.equals(
+                                                "Dolby Vision",
+                                                ignoreCase = true
+                                            ),
+                                            surfaceColor = detailSurfaceColor
+                                        )
+                                    }
+                                }
+
+                                if (codecBadges.hasSpatialAudio) {
+                                    item {
+                                        CapabilityBadge(
+                                            text = "空间音频",
+                                            customIcon = R.drawable.ic_spatial_audio,
+                                            customIconTint = detailAccentColor,
+                                            surfaceColor = detailSurfaceColor
+                                        )
+                                    }
+                                }
+
+                                if (codecBadges.dolbyAudioBadgeText.isNotBlank()) {
+                                    item {
+                                        CapabilityBadge(
+                                            text = codecBadges.dolbyAudioBadgeText,
+                                            customIcon = if (codecBadges.hasDolbyAtmos) R.drawable.ic_dolby_atmos else R.drawable.ic_dolby_logo,
+                                            iconTintUnspecified = true,
+                                            surfaceColor = detailSurfaceColor
+                                        )
+                                    }
+                                }
+
+                                if (codecBadges.audioChannelBadgeText.isNotBlank()) {
+                                    item {
+                                        CapabilityBadge(
+                                            text = codecBadges.audioChannelBadgeText,
+                                            surfaceColor = detailSurfaceColor
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        if (isWidescreenLayout && hasDescriptionContent) {
+                            OverviewSection(
+                                overview = item.overview,
+                                tagline = descriptionTagline,
+                                modifier = Modifier.padding(top = 14.dp)
+                            )
+                        }
+
+                        if (isWidescreenLayout && directors.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "导演：",
+                                    fontSize = 13.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                Row {
+                                    directors.forEachIndexed { idx, person ->
+                                        val name = person.name ?: "未知"
+                                        Text(
+                                            text = name + if (idx < directors.lastIndex) ", " else "",
+                                            fontSize = 13.sp,
+                                            color = detailAccentColor,
+                                            modifier = Modifier.clickable(enabled = !person.id.isNullOrBlank()) {
+                                                person.id?.let { onPersonClick(it) }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(layout.logoBottomSpacing))
+
+                        val hasVideoSection = videoOptions.isNotEmpty()
+                        val hasAudioSection = audioOptions.isNotEmpty()
+                        val hasSubtitleSection = subtitleOptions.size > 1
+                        val trackFieldCount =
+                            listOf(hasVideoSection, hasAudioSection, hasSubtitleSection)
+                                .count { it }
+                        val tabletTrackFieldMaxWidth = when (trackFieldCount) {
+                            3 -> 230.dp
+                            2 -> 300.dp
+                            else -> 360.dp
+                        }
+                        val detailActionButtonHeight = if (useTabletBackdropLayout) 40.dp else 46.dp
+
+                        if (isWidescreenLayout) {
+                            if (hasVideoSection || hasAudioSection || hasSubtitleSection) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (hasVideoSection) {
+                                        val sharesRow = hasSubtitleSection || hasAudioSection
+                                        TrackField(
+                                            modifier = if (sharesRow) {
+                                                Modifier.widthIn(max = tabletTrackFieldMaxWidth)
+                                            } else {
+                                                Modifier.fillMaxWidth()
+                                            },
+                                            label = "视频",
+                                            selectedOption = selectedVideo,
+                                            options = videoOptions,
+                                            inlineMetaText = videoInlineMetaText,
+                                            singleValueFillWidth = !sharesRow,
+                                            surfaceColor = detailSurfaceColor,
+                                            onOptionSelected = onVideoOptionSelected
+                                        )
+                                    }
+
+                                    if (hasAudioSection) {
+                                        val sharesRow = hasSubtitleSection || hasVideoSection
+                                        TrackField(
+                                            modifier = if (sharesRow) {
+                                                Modifier.widthIn(max = tabletTrackFieldMaxWidth)
+                                            } else {
+                                                Modifier.fillMaxWidth()
+                                            },
+                                            label = "音频",
+                                            selectedOption = selectedAudio,
+                                            options = audioOptions,
+                                            singleValueFillWidth = !sharesRow,
+                                            surfaceColor = detailSurfaceColor,
+                                            onOptionSelected = onAudioOptionSelected
+                                        )
+                                    }
+
+                                    if (hasSubtitleSection) {
+                                        val sharesRow = hasVideoSection || hasAudioSection
+                                        TrackField(
+                                            modifier = if (sharesRow) {
+                                                Modifier.widthIn(max = tabletTrackFieldMaxWidth)
+                                            } else {
+                                                Modifier.fillMaxWidth()
+                                            },
+                                            label = "字幕",
+                                            selectedOption = selectedSubtitle,
+                                            options = subtitleOptions,
+                                            singleValueFillWidth = !sharesRow,
+                                            surfaceColor = detailSurfaceColor,
+                                            onOptionSelected = onSubtitleOptionSelected
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        } else {
+                            if (hasVideoSection) {
+                                TrackField(
+                                    label = "视频",
+                                    selectedOption = selectedVideo,
+                                    options = videoOptions,
+                                    inlineMetaText = videoInlineMetaText,
+                                    surfaceColor = detailSurfaceColor,
+                                    onOptionSelected = onVideoOptionSelected
+                                )
+                            }
+
+                            if (hasVideoSection && hasAudioSection) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
+
+                            if (hasAudioSection) {
+                                TrackField(
+                                    label = "音频",
+                                    selectedOption = selectedAudio,
+                                    options = audioOptions,
+                                    surfaceColor = detailSurfaceColor,
+                                    onOptionSelected = onAudioOptionSelected
+                                )
+                            }
+
+                            if (hasSubtitleSection) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                TrackField(
+                                    label = "字幕",
+                                    selectedOption = selectedSubtitle,
+                                    options = subtitleOptions,
+                                    surfaceColor = detailSurfaceColor,
+                                    onOptionSelected = onSubtitleOptionSelected
+                                )
+                            }
+                        }
+
+                        if (item.type != "Series") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(
+                                        detailActionWidth(
+                                            screenWidthDp,
+                                            useTabletLayout = useTabletBackdropLayout
+                                        )
+                                    )
+                                    .padding(top = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(detailActionButtonHeight)
+                                        .clip(RoundedCornerShape(24.dp))
+                                ) {
+                                    Button(
+                                        onClick = {
+                                            val (selectedAudioStreamIndex, selectedSubtitleStreamIndex) = persistTrackSelection(
+                                                audioOption = selectedAudio,
+                                                subtitleOption = selectedSubtitle
+                                            )
+                                            onPlayClick(
+                                                selectedAudioStreamIndex,
+                                                selectedSubtitleStreamIndex
+                                            )
+                                        },
+                                        modifier = Modifier.fillMaxSize(),
+                                        shape = RoundedCornerShape(24.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isPartiallyWatched) detailGlassButtonColor else detailPrimaryButtonColor,
+                                            contentColor = detailPrimaryButtonContentColor
+                                        ),
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Box(modifier = Modifier.fillMaxSize()) {
+                                            val progressFraction = resumeProgress.coerceIn(0f, 1f)
+
+                                            if (isPartiallyWatched) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxHeight()
+                                                        .fillMaxWidth(progressFraction)
+                                                        .background(detailAccentColor)
+                                                )
+                                            }
+
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .padding(horizontal = 14.dp),
+                                                horizontalArrangement = Arrangement.Center,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                if (isPartiallyWatched) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.ic_resume_playback),
+                                                        contentDescription = "继续播放",
+                                                        modifier = Modifier.size(22.dp),
+                                                        tint = detailAccentColor
+                                                    )
+                                                } else {
+                                                    Icon(
+                                                        imageVector = Icons.Rounded.PlayArrow,
+                                                        contentDescription = "播放",
+                                                        modifier = Modifier.size(22.dp),
+                                                        tint = detailPrimaryButtonContentColor
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = playButtonText,
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    color = if (isPartiallyWatched) detailAccentColor else detailPrimaryButtonContentColor
+                                                )
+                                            }
+
+                                            if (isPartiallyWatched) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .padding(horizontal = 14.dp)
+                                                        .drawWithContent {
+                                                            clipRect(right = size.width * progressFraction) {
+                                                                this@drawWithContent.drawContent()
+                                                            }
+                                                        },
+                                                    horizontalArrangement = Arrangement.Center,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.ic_resume_playback),
+                                                        contentDescription = "继续播放",
+                                                        modifier = Modifier.size(22.dp),
+                                                        tint = detailAccentTextColor
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = playButtonText,
+                                                        fontSize = 14.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis,
+                                                        color = detailAccentTextColor
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(detailActionButtonHeight)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            when {
+                                                !canDownloadItem -> Unit
+                                                hasActiveDownload -> downloadActionMenu = true
+                                                else -> {
+                                                    coroutineScope.launch {
+                                                        downloadRepository.enqueueItemDownload(item)
+                                                            .onFailure { throwable ->
+                                                                downloadErrorDialogMessage =
+                                                                    downloadFailureDialogMessage(
+                                                                        rawMessage = throwable.message
+                                                                    )
+                                                            }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxSize(),
+                                        shape = RoundedCornerShape(24.dp),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            detailBorderColor
+                                        ),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            containerColor = detailGlassButtonColor,
+                                            contentColor = detailAccentColor
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
+                                    ) {
+                                        val buttonState = when {
+                                            !canDownloadItem -> "unavailable"
+                                            itemDownloadState.status == DownloadStatus.COMPLETED -> "completed"
+                                            itemDownloadState.status == DownloadStatus.DOWNLOADING -> "downloading"
+                                            isPausedDownload -> "paused"
+                                            itemDownloadState.status == DownloadStatus.QUEUED -> "queued"
+                                            else -> "idle"
+                                        }
+                                        AnimatedContent(
+                                            targetState = buttonState,
+                                            transitionSpec = {
+                                                fadeIn(animationSpec = tween(220)) togetherWith
+                                                        fadeOut(animationSpec = tween(180))
+                                            },
+                                            label = "download_button_state"
+                                        ) { state ->
+                                            when (state) {
+                                                "downloading" -> {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.Center
+                                                    ) {
+                                                        CircularProgressIndicator(
+                                                            progress = {
+                                                                animatedDownloadProgress.coerceIn(
+                                                                    0f,
+                                                                    0.99f
+                                                                )
+                                                            },
+                                                            modifier = Modifier.size(18.dp),
+                                                            strokeWidth = 2.dp,
+                                                            color = detailAccentColor
+                                                        )
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Text(
+                                                            text = "${(animatedDownloadProgress * 100).toInt()}%",
+                                                            fontSize = 14.sp,
+                                                            fontWeight = FontWeight.Medium
+                                                        )
+                                                    }
+                                                }
+
+                                                "queued" -> {
+                                                    DownloadLabelContent(
+                                                        icon = Icons.Rounded.Download,
+                                                        label = stringResource(R.string.downloads_status_queued),
+                                                        iconSize = 18.dp,
+                                                        fontSize = 14.sp
+                                                    )
+                                                }
+
+                                                "completed" -> {
+                                                    DownloadLabelContent(
+                                                        icon = Icons.Rounded.CheckCircle,
+                                                        label = stringResource(R.string.downloads_status_downloaded),
+                                                        iconSize = 18.dp,
+                                                        fontSize = 12.sp,
+                                                        tint = Color(0xFF4CAF50),
+                                                        textColor = Color(0xFF4CAF50)
+                                                    )
+                                                }
+
+                                                "paused" -> {
+                                                    DownloadLabelContent(
+                                                        icon = Icons.Rounded.PauseCircle,
+                                                        label = stringResource(R.string.downloads_status_paused),
+                                                        iconSize = 18.dp,
+                                                        fontSize = 14.sp,
+                                                        tint = Color(0xFFFFC107)
+                                                    )
+                                                }
+
+                                                "unavailable" -> {
+                                                    DownloadLabelContent(
+                                                        icon = Icons.Rounded.Download,
+                                                        label = stringResource(R.string.settings_unavailable),
+                                                        iconSize = 18.dp,
+                                                        fontSize = 14.sp
+                                                    )
+                                                }
+
+                                                else -> {
+                                                    DownloadLabelContent(
+                                                        icon = Icons.Rounded.Download,
+                                                        label = stringResource(R.string.downloads_action_download),
+                                                        iconSize = 18.dp,
+                                                        fontSize = 14.sp
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    DownloadActionMenu(
+                                        expanded = downloadActionMenu,
+                                        canResume = isPausedDownload,
+                                        hasActiveDownloads = hasActiveDownload,
+                                        onDismissRequest = { downloadActionMenu = false },
+                                        onPauseResume = {
+                                            downloadActionMenu = false
+                                            item.id?.let { itemId ->
+                                                if (isPausedDownload) {
+                                                    downloadRepository.resumeDownload(itemId)
+                                                } else {
+                                                    downloadRepository.pauseDownload(itemId)
+                                                }
+                                            }
+                                        },
+                                        onCancel = {
+                                            downloadActionMenu = false
+                                            item.id?.let(downloadRepository::cancelDownload)
+                                        }
+                                    )
+                                }
+
+                                FavoriteActionButton(
+                                    isFavorite = isFavorite,
+                                    onClick = ::toggleFavorite,
+                                    surfaceColor = detailSurfaceColor
+                                )
+                            }
+                        }
+
+                        if (!isWidescreenLayout && hasDescriptionContent) {
+                            OverviewSection(
+                                overview = item.overview,
+                                tagline = descriptionTagline,
+                                modifier = Modifier.padding(top = 18.dp)
+                            )
+                        }
+
+                        if (!isWidescreenLayout && directors.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "导演：",
+                                    fontSize = 13.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                Row {
+                                    directors.forEachIndexed { idx, person ->
+                                        val name = person.name ?: "未知"
+                                        Text(
+                                            text = name + if (idx < directors.lastIndex) ", " else "",
+                                            fontSize = 13.sp,
+                                            color = detailAccentColor,
+                                            modifier = Modifier.clickable(enabled = !person.id.isNullOrBlank()) {
+                                                person.id?.let { onPersonClick(it) }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        if (isEpisode) {
+                            MoreFromSeasonSection(
+                                episodes = moreFromSeasonEpisodes,
+                                mediaRepository = mediaRepository,
+                                title = moreFromSeasonTitle,
+                                currentEpisodeId = item.id,
+                                seasons = moreFromSeasonSeasons,
+                                selectedSeasonId = selectedMoreFromSeasonId,
+                                surfaceColor = detailSurfaceColor,
+                                onSeasonSelected = { season ->
+                                    selectedMoreFromSeasonId = season.id
+                                },
+                                onEpisodeClick = onSimilarItemClick
+                            )
+                        }
+
+                        if (item.type == "Series") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth(
+                                        detailActionWidth(
+                                            screenWidthDp,
+                                            useTabletLayout = useTabletBackdropLayout
+                                        )
+                                    )
+                                    .padding(top = 14.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(detailActionButtonHeight)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            when {
+                                                hasActiveSeriesDownloads -> seriesDownloadActionMenu =
+                                                    true
+
+                                                else -> {
+                                                    coroutineScope.launch {
+                                                        val seriesId = item.id
+                                                        if (seriesId.isNullOrBlank()) {
+                                                            return@launch
+                                                        }
+                                                        seriesQueueInProgress = true
+                                                        try {
+                                                            val estimateResult =
+                                                                downloadRepository.buildSeriesDownloadEstimate(
+                                                                    seriesId
+                                                                )
+                                                            estimateResult.fold(
+                                                                onSuccess = { estimate ->
+                                                                    seriesStorageSelectionDialogState =
+                                                                        SeriesSeasonSelectionDialogState.fromEstimate(
+                                                                            estimate
+                                                                        )
+                                                                },
+                                                                onFailure = { throwable ->
+                                                                    downloadErrorDialogMessage =
+                                                                        downloadFailureDialogMessage(
+                                                                            rawMessage = throwable.message
+                                                                        )
+                                                                }
+                                                            )
+                                                        } finally {
+                                                            seriesQueueInProgress = false
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxSize(),
+                                        shape = RoundedCornerShape(24.dp),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            detailBorderColor
+                                        ),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            containerColor = detailGlassButtonColor,
+                                            contentColor = detailAccentColor
+                                        )
+                                    ) {
+                                        DownloadContent(
+                                            visualState = downloadButtonVisualState(
+                                                panelState = seriesDownload,
+                                                isQueueing = seriesQueueInProgress
+                                            ),
+                                            progress = animatedSeriesDownloadProgress,
+                                            idleLabelRes = R.string.downloads_action_download_series,
+                                            fontSize = 14.sp,
+                                            iconSize = 18.dp,
+                                            progressSize = 18.dp
+                                        )
+                                    }
+
+                                    DownloadActionMenu(
+                                        expanded = seriesDownloadActionMenu,
+                                        canResume = canResumeSeriesDownloads,
+                                        hasActiveDownloads = hasActiveSeriesDownloads,
+                                        onDismissRequest = { seriesDownloadActionMenu = false },
+                                        onPauseResume = {
+                                            seriesDownloadActionMenu = false
+                                            if (canResumeSeriesDownloads) {
+                                                seriesDownload.pausedItemIds.forEach(
+                                                    downloadRepository::resumeDownload
+                                                )
+                                            } else {
+                                                seriesDownload.pausableItemIds.forEach(
+                                                    downloadRepository::pauseDownload
+                                                )
+                                            }
+                                        },
+                                        onCancel = {
+                                            seriesDownloadActionMenu = false
+                                            seriesDownload.activeItemIds.forEach(downloadRepository::cancelDownload)
+                                        }
+                                    )
+                                }
+
+                                FavoriteActionButton(
+                                    isFavorite = isFavorite,
+                                    onClick = ::toggleFavorite,
+                                    surfaceColor = detailSurfaceColor
+                                )
+                            }
+
+                            item.id?.let { seriesId ->
+                                SeasonsSection(
+                                    seriesId = seriesId,
+                                    mediaRepository = mediaRepository,
+                                    surfaceColor = detailSurfaceColor,
+                                    onSeasonClick = onSeasonClick
+                                )
+                            }
+                        }
+
+                        CastSection(
+                            item = item,
+                            mediaRepository = mediaRepository,
+                            surfaceColor = detailSurfaceColor,
+                            onPersonClick = onPersonClick
+                        )
+
+                        actorCreditRows.forEach { row ->
+                            SimilarItemsSection(
+                                similarItems = row.localTitles,
+                                seerrItems = row.seerrTitles,
+                                mediaRepository = mediaRepository,
+                                onItemClick = onSimilarItemClick,
+                                title = "主演 ${row.personName}"
+                            )
+                        }
+
+                        if (primaryDirector != null && (directorTitles.isNotEmpty() || seerrDirectorTitles.isNotEmpty())) {
+                            SimilarItemsSection(
+                                similarItems = directorTitles,
+                                seerrItems = seerrDirectorTitles,
+                                mediaRepository = mediaRepository,
+                                onItemClick = onSimilarItemClick,
+                                title = "导演 ${primaryDirector.name}"
+                            )
+                        }
+
+                        SimilarItemsSection(
+                            similarItems = similarItems,
+                            mediaRepository = mediaRepository,
+                            onItemClick = onSimilarItemClick
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    seriesStorageSelectionDialogState?.let { dialogState ->
+        DownloadDialog(
+            title = "选择季",
+            subtitle = "选择要下载的季，所选总大小不能超过可用存储空间。",
+            availableBytes = dialogState.availableBytes,
+            options = dialogState.options,
+            initialSelection = dialogState.options.map { it.id }.toSet(),
+            confirmLabel = "Download Seasons",
+            surfaceColor = detailSurfaceColor,
+            onDismiss = { seriesStorageSelectionDialogState = null },
+            onConfirm = { selectedIds ->
+                val selectedEpisodes = selectedIds
+                    .flatMap { seasonId -> dialogState.episodesBySeasonId[seasonId].orEmpty() }
+                    .distinctBy { it.id }
+                seriesStorageSelectionDialogState = null
+                coroutineScope.launch {
+                    seriesQueueInProgress = true
+                    try {
+                        downloadRepository.enqueueEpisodeDownloads(selectedEpisodes)
+                            .onFailure { throwable ->
+                                downloadErrorDialogMessage =
+                                    downloadFailureDialogMessage(rawMessage = throwable.message)
+                            }
+                    } finally {
+                        seriesQueueInProgress = false
+                    }
+                }
+            }
+        )
+    }
+
+    downloadErrorDialogMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { downloadErrorDialogMessage = null },
+            containerColor = detailGlassButtonColor,
+            titleContentColor = Color.White,
+            textContentColor = detailSecondaryTextColor,
+            tonalElevation = 0.dp,
+            shape = RoundedCornerShape(28.dp),
+            title = {
+                Text(
+                    text = "下载失败",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 20.sp
+                )
+            },
+            text = {
+                Text(text = message)
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { downloadErrorDialogMessage = null },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = detailAccentColor
+                    )
+                ) {
+                    Text("确定", fontWeight = FontWeight.SemiBold)
+                }
+            }
+        )
+    }
+
+}
+
+@Composable
+private fun MoreFromSeasonSection(
+    episodes: List<BaseItemDto>,
+    mediaRepository: MediaRepository,
+    title: String,
+    currentEpisodeId: String?,
+    seasons: List<BaseItemDto> = emptyList(),
+    selectedSeasonId: String? = null,
+    surfaceColor: Color = HillsDetailSurface,
+    onSeasonSelected: (BaseItemDto) -> Unit = {},
+    onEpisodeClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (episodes.isEmpty()) return
+
+    val listState = rememberLazyListState()
+    val currentIndex = remember(episodes, currentEpisodeId) {
+        episodes.indexOfFirst { it.id == currentEpisodeId }
+    }
+    var seasonMenuExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(currentIndex, episodes.size) {
+        if (currentIndex >= 0) {
+            listState.animateScrollToItem(currentIndex)
+        }
+    }
+
+    val selectedSeason = remember(seasons, selectedSeasonId) {
+        seasons.firstOrNull { it.id == selectedSeasonId }
+    }
+    val dynamicColors = rememberDetailDynamicColors(surfaceColor)
+
+    Column(
+        modifier = modifier
+            .padding(top = 22.dp)
+            .clip(RoundedCornerShape(26.dp))
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        dynamicColors.glass,
+                        dynamicColors.glassSoft
+                    )
+                )
+            )
+            .border(1.dp, dynamicColors.border, RoundedCornerShape(26.dp))
+            .padding(horizontal = 12.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                fontSize = 21.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+
+            if (seasons.size > 1) {
+                Box {
+                    Surface(
+                        onClick = { seasonMenuExpanded = true },
+                        shape = RoundedCornerShape(999.dp),
+                        color = dynamicColors.glass,
+                        border = BorderStroke(1.dp, dynamicColors.border)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 13.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text(
+                                text = hillsSeasonName(selectedSeason),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Icon(
+                                imageVector = Icons.Rounded.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.86f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    GlassDropdownMenu(
+                        expanded = seasonMenuExpanded,
+                        onDismissRequest = { seasonMenuExpanded = false },
+                        minWidth = 170.dp,
+                        surfaceColor = surfaceColor
+                    ) {
+                        seasons.forEach { season ->
+                            val selected = season.id == selectedSeasonId
+                            GlassDropdownMenuItem(
+                                text = hillsSeasonName(season),
+                                selected = selected,
+                                leadingIcon = if (selected) Icons.Rounded.Check else null,
+                                surfaceColor = surfaceColor,
+                                onClick = {
+                                    seasonMenuExpanded = false
+                                    onSeasonSelected(season)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        LazyRow(
+            state = listState,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = 0.dp)
+        ) {
+            items(
+                items = episodes,
+                key = { episode -> episode.id ?: "${episode.name}-${episode.indexNumber}" }
+            ) { episode ->
+                EpisodePreviewCard(
+                    episode = episode,
+                    mediaRepository = mediaRepository,
+                    cardWidth = 224.dp,
+                    thumbnailHeight = 126.dp,
+                    surfaceColor = surfaceColor,
+                    isCurrent = episode.id == currentEpisodeId,
+                    onClick = {
+                        episode.id?.let(onEpisodeClick)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SimilarItemsSection(
+    similarItems: List<BaseItemDto>,
+    seerrItems: List<SeerrRecommendationTitle> = emptyList(),
+    mediaRepository: MediaRepository,
+    onItemClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    title: String? = null
+) {
+    if (similarItems.isEmpty() && seerrItems.isEmpty()) return
+    val sectionTitle = title ?: stringResource(R.string.detail_similar_items_title)
+
+    Column(
+        modifier = modifier.padding(top = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = sectionTitle,
+            fontSize = 21.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = 0.dp)
+        ) {
+            items(
+                items = similarItems,
+                key = { similarItem -> similarItem.id ?: "${similarItem.name}-${similarItem.type}" }
+            ) { similarItem ->
+                SimilarItemCard(
+                    item = similarItem,
+                    mediaRepository = mediaRepository,
+                    onClick = {
+                        similarItem.id?.let(onItemClick)
+                    }
+                )
+            }
+
+            items(
+                items = seerrItems,
+                key = { seerrItem -> "seerr-${seerrItem.tmdbId}" }
+            ) { seerrItem ->
+                SeerTitleCard(seerrItem)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SimilarItemCard(
+    item: BaseItemDto,
+    mediaRepository: MediaRepository,
+    onClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val imageItemId = remember(item.id, item.type, item.seriesId) {
+        when {
+            item.type == "Episode" && !item.seriesId.isNullOrBlank() -> item.seriesId
+            else -> item.id
+        }
+    }
+    val imageUrl = rememberImageUrl(
+        itemId = imageItemId,
+        imageType = "Primary",
+        width = 320,
+        height = 480,
+        quality = 90,
+        imageTag = item.imageTagFor(
+            imageType = "Primary",
+            targetItemId = imageItemId
+        ),
+        mediaRepository = mediaRepository
+    )
+
+    Column(
+        modifier = Modifier
+            .width(116.dp)
+            .clickable(
+                enabled = !item.id.isNullOrBlank(),
+                onClick = onClick
+            )
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(166.dp),
+            shape = RoundedCornerShape(10.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = HillsDetailGlassSurfaceSoft
+            )
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!imageUrl.isNullOrBlank()) {
+                    JellyfinPosterImage(
+                        imageUrl = imageUrl,
+                        contentDescription = item.name,
+                        modifier = Modifier.fillMaxSize(),
+                        context = context,
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Rounded.Movie,
+                        contentDescription = item.name,
+                        tint = Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = item.name ?: stringResource(R.string.detail_similar_item_unknown),
+            fontSize = 12.sp,
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            fontWeight = FontWeight.Medium,
+            lineHeight = 14.sp
+        )
+
+        val subtitle = item.productionYear?.toString()
+            ?: item.type?.takeIf { it.isNotBlank() }
+
+        if (!subtitle.isNullOrBlank()) {
+            Text(
+                text = subtitle,
+                fontSize = 10.sp,
+                color = Color.White.copy(alpha = 0.62f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 1.dp)
+            )
+        }
+    }
+}
+
+private data class DetailScreenLayoutSpec(
+    val heroHeight: Dp,
+    val backdropHeight: Dp,
+    val headerOffset: Dp,
+    val contentTopPadding: Dp,
+    val horizontalPadding: Dp,
+    val contentMaxWidth: Dp?,
+    val logoContainerHeight: Dp,
+    val logoBottomSpacing: Dp
+)
+
+private fun detailScreenLayoutSpec(
+    isWidescreenLayout: Boolean,
+    useTabletBackdropLayout: Boolean,
+    screenWidthDp: Dp,
+    screenHeightDp: Dp
+): DetailScreenLayoutSpec {
+    val horizontalPadding = if (isWidescreenLayout) 30.dp else 14.dp
+
+    return DetailScreenLayoutSpec(
+        heroHeight = 330.dp,
+        backdropHeight = if (useTabletBackdropLayout) screenHeightDp else 330.dp,
+        headerOffset = if (useTabletBackdropLayout) 0.dp else (-96).dp,
+        contentTopPadding = if (useTabletBackdropLayout) 312.dp else 0.dp,
+        horizontalPadding = horizontalPadding,
+        contentMaxWidth = detailContentMaxWidth(
+            screenWidthDp = screenWidthDp,
+            horizontalPadding = horizontalPadding
+        ),
+        logoContainerHeight = if (isWidescreenLayout) 74.dp else 78.dp,
+        logoBottomSpacing = if (isWidescreenLayout) 18.dp else 8.dp
+    )
+}
+
+@Composable
+private fun BoxScope.DetailHeroCastButtonOverlay(
+    onCastButtonClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .statusBarsPadding()
+            .padding(top = 12.dp, end = 14.dp)
+    ) {
+        ScreenCastButton(onConnectedClick = onCastButtonClick)
+    }
+}
+
+@Composable
+private fun DetailInfoRow(
+    label: String,
+    value: String,
+    fillWidth: Boolean = true
+) {
+    Row(
+        modifier = if (fillWidth) Modifier.fillMaxWidth() else Modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "$label  ",
+            fontSize = 13.sp,
+            color = Color.White,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = value,
+            fontSize = 13.sp,
+            color = Color.White.copy(alpha = 0.78f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun TrackField(
+    label: String,
+    selectedOption: String,
+    options: List<String>,
+    modifier: Modifier = Modifier,
+    inlineMetaText: String? = null,
+    singleValueFillWidth: Boolean = true,
+    surfaceColor: Color? = null,
+    onOptionSelected: (String) -> Unit
+) {
+    if (options.isEmpty()) return
+
+    Box(modifier = modifier) {
+        if (options.size > 1) {
+            OptionSelectorRow(
+                label = label,
+                selectedOption = selectedOption,
+                options = options,
+                inlineMetaText = inlineMetaText,
+                surfaceColor = surfaceColor,
+                onOptionSelected = onOptionSelected
+            )
+        } else {
+            val value = if (!inlineMetaText.isNullOrBlank()) {
+                "${options.first()} / $inlineMetaText"
+            } else {
+                options.first()
+            }
+            DetailInfoRow(
+                label = label,
+                value = value,
+                fillWidth = singleValueFillWidth
+            )
+        }
+    }
+}
+
+@Composable
+private fun OptionSelectorRow(
+    label: String,
+    selectedOption: String,
+    options: List<String>,
+    inlineMetaText: String? = null,
+    surfaceColor: Color? = null,
+    onOptionSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val displayText = buildString {
+        append(selectedOption.ifBlank { options.firstOrNull().orEmpty() })
+        if (!inlineMetaText.isNullOrBlank()) {
+            append(" / ")
+            append(inlineMetaText)
+        }
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "$label  ",
+            fontSize = 13.sp,
+            color = Color.White,
+            fontWeight = FontWeight.SemiBold
+        )
+
+        Box(modifier = Modifier.fillMaxWidth()) {
+            GlassOptionContainer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 38.dp)
+                    .clickable { expanded = true },
+                surfaceColor = surfaceColor
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = displayText,
+                        color = Color.White.copy(alpha = 0.92f),
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.Rounded.KeyboardArrowDown,
+                        contentDescription = "选择 $label",
+                        tint = Color.White.copy(alpha = 0.72f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            GlassDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                minWidth = 220.dp,
+                surfaceColor = surfaceColor
+            ) {
+                options.forEach { option ->
+                    GlassDropdownMenuItem(
+                        text = option,
+                        selected = option == selectedOption,
+                        surfaceColor = surfaceColor,
+                        onClick = {
+                            onOptionSelected(option)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun buildVideoInlineText(
+    mediaSources: List<MediaSourceInfo>,
+    streams: List<MediaStream>
+): String? {
+    val source = inlinePrimaryMediaSource(mediaSources)
+    val parts = mutableListOf<String>()
+    CodecUtils.getFileSize(source?.size)?.let(parts::add)
+
+    val fileBitrate = source?.bitrate?.toLong()
+        ?: streams
+            .sumOf { (it.bitRate ?: 0).toLong() }
+            .takeIf { it > 0L }
+    formatBitrate(fileBitrate)?.let(parts::add)
+
+    return parts.takeIf { it.isNotEmpty() }?.joinToString(" / ")
+}
+
+private fun inlinePrimaryMediaSource(sources: List<MediaSourceInfo>): MediaSourceInfo? {
+    return sources.firstOrNull { source ->
+        !source.name.isNullOrBlank() ||
+                !source.container.isNullOrBlank() ||
+                source.size != null ||
+                source.bitrate != null ||
+                source.mediaStreams.orEmpty().isNotEmpty()
+    } ?: sources.firstOrNull()
+}
+
+private fun formatBitrate(bitsPerSecond: Int?): String? = formatBitrate(bitsPerSecond?.toLong())
+
+private fun formatBitrate(bitsPerSecond: Long?): String? {
+    val value = bitsPerSecond?.takeIf { it > 0L } ?: return null
+    return if (value >= 1_000_000L) {
+        "${String.format(Locale.US, "%.1f", value / 1_000_000.0)} Mbps"
+    } else {
+        "${value / 1000L} kbps"
+    }
+}
+
+@Composable
+private fun FavoriteActionButton(
+    isFavorite: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    surfaceColor: Color = HillsDetailSurface
+) {
+    val dynamicColors = rememberDetailDynamicColors(surfaceColor)
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.size(46.dp),
+        shape = RoundedCornerShape(24.dp),
+        border = BorderStroke(1.dp, dynamicColors.border),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = dynamicColors.glass,
+            contentColor = dynamicColors.accent
+        ),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        Icon(
+            imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+            contentDescription = if (isFavorite) "取消收藏" else "收藏",
+            modifier = Modifier.size(20.dp),
+            tint = if (isFavorite) Color(0xFFFF4D6D) else dynamicColors.accent
+        )
+    }
+}
+
+private fun buildVideoOptions(streams: List<MediaStream>): List<String> {
+    return OptionLabels(mediaStreamDisplayTitles(streams, "Video"))
+}
+
+private fun buildAudioOptions(streams: List<MediaStream>): List<String> {
+    return OptionLabels(mediaStreamDisplayTitles(streams, "Audio"))
+}
+
+private fun buildSubtitleOptions(streams: List<MediaStream>): List<String> {
+    val options = mutableListOf("关闭")
+    options += mediaStreamDisplayTitles(streams, "Subtitle")
+    return OptionLabels(options)
+}
+
+private fun buildDefaultSubtitleOption(streams: List<MediaStream>): String {
+    return defaultSubtitleDisplayTitle(streams).takeUnless { it == "Off" } ?: "关闭"
+}
+
+private fun downloadFailureDialogMessage(
+    state: ItemDownloadState? = null,
+    rawMessage: String? = null
+): String {
+    state?.storageShortageInfo?.let { storage ->
+        val fileSize = storage.fileSizeBytes?.let(::formatStorageBytesForDialog) ?: "未知"
+        val available = formatStorageBytesForDialog(storage.availableBytes)
+        val needed = formatStorageBytesForDialog(storage.neededBytes)
+        return buildString {
+            appendLine("此设备存储空间不足。")
+            appendLine()
+            appendLine("文件大小：$fileSize")
+            appendLine("可用空间：$available")
+            append("所需空间：$needed")
+        }
+    }
+
+    val resolvedMessage = rawMessage?.trim().takeUnless { it.isNullOrBlank() }
+        ?: state?.message?.trim().takeUnless { it.isNullOrBlank() }
+    return resolvedMessage ?: "下载失败，请重试。"
+}
+
+private fun formatStorageBytesForDialog(bytes: Long): String {
+    val value = bytes.coerceAtLeast(0L).toDouble()
+    val kb = 1024.0
+    val mb = kb * 1024.0
+    val gb = mb * 1024.0
+    return when {
+        value >= gb -> String.format(Locale.US, "%.2f GB", value / gb)
+        value >= mb -> String.format(Locale.US, "%.1f MB", value / mb)
+        value >= kb -> String.format(Locale.US, "%.1f KB", value / kb)
+        else -> "${bytes.coerceAtLeast(0L)} B"
+    }
+}
+
+private fun AudioStreamIndex(
+    streams: List<MediaStream>,
+    selectedOption: String
+): Int? {
+    val audioStreams = streams
+        .filter { it.type == "Audio" }
+        .sortedBy { it.index ?: Int.MAX_VALUE }
+    if (audioStreams.isEmpty()) return null
+    if (selectedOption.isBlank()) return audioStreams.firstOrNull()?.index
+    val audioOptions = buildAudioOptions(streams)
+    val optionOrdinal = audioOptions.indexOf(selectedOption)
+    if (optionOrdinal < 0 || optionOrdinal >= audioStreams.size) return null
+    return audioStreams[optionOrdinal].index
+}
+
+private fun SubtitleStreamIndex(
+    streams: List<MediaStream>,
+    selectedOption: String
+): Int? {
+    if (selectedOption == "关闭" || selectedOption == "Off") return -1
+
+    val subtitleStreams = streams
+        .filter { it.type == "Subtitle" }
+        .sortedBy { it.index ?: Int.MAX_VALUE }
+    if (subtitleStreams.isEmpty()) return null
+    if (selectedOption.isBlank()) return subtitleStreams.firstOrNull()?.index
+    val subtitleOptions = buildSubtitleOptions(streams).drop(1)
+    val optionOrdinal = subtitleOptions.indexOf(selectedOption)
+    if (optionOrdinal < 0 || optionOrdinal >= subtitleStreams.size) return null
+    return subtitleStreams[optionOrdinal].index
+}
+
+private fun AudioStreamIndex(
+    streams: List<MediaStream>,
+    streamIndex: Int?
+): String? {
+    if (streamIndex == null) return null
+
+    val audioStreams = streams
+        .filter { it.type == "Audio" }
+        .sortedBy { it.index ?: Int.MAX_VALUE }
+    val streamOrdinal = audioStreams.indexOfFirst { it.index == streamIndex }
+    if (streamOrdinal < 0) return null
+    return buildAudioOptions(streams).getOrNull(streamOrdinal)
+}
+
+private fun SubtitleStreamIndex(
+    streams: List<MediaStream>,
+    streamIndex: Int?
+): String? {
+    if (streamIndex == null) return null
+    if (streamIndex == -1) return "关闭"
+
+    val subtitleStreams = streams
+        .filter { it.type == "Subtitle" }
+        .sortedBy { it.index ?: Int.MAX_VALUE }
+    val streamOrdinal = subtitleStreams.indexOfFirst { it.index == streamIndex }
+    if (streamOrdinal < 0) return null
+    val subtitleOptions = buildSubtitleOptions(streams).drop(1)
+    return subtitleOptions.getOrNull(streamOrdinal)
+}
+
+private suspend fun heroImageCandidates(
+    item: BaseItemDto,
+    mediaRepository: MediaRepository
+): List<String> {
+    val itemId = item.id ?: return emptyList()
+    val seriesId = item.seriesId
+    val candidates = mutableListOf<String>()
+
+    fun addCandidate(url: String?) {
+        if (!url.isNullOrBlank() && !candidates.contains(url)) {
+            candidates.add(url)
+        }
+    }
+
+    if (item.type == "Episode") {
+        addCandidate(
+            mediaRepository.getBackdropImageUrl(
+                itemId = itemId,
+                width = 1920,
+                height = 1080,
+                quality = 100,
+                enableImageEnhancers = false,
+                imageTag = item.imageTagFor(
+                    imageType = "Backdrop",
+                    targetItemId = itemId
+                )
+            ).first()
+        )
+
+        addCandidate(
+            mediaRepository.getImageUrl(
+                itemId = itemId,
+                imageType = "Primary",
+                width = 1920,
+                height = 1080,
+                quality = 100,
+                enableImageEnhancers = false,
+                imageTag = item.imageTagFor(
+                    imageType = "Primary",
+                    targetItemId = itemId
+                )
+            ).first()
+        )
+
+        addCandidate(
+            mediaRepository.getImageUrl(
+                itemId = itemId,
+                imageType = "Thumb",
+                width = 1920,
+                height = 1080,
+                quality = 100,
+                enableImageEnhancers = false,
+                imageTag = item.imageTagFor(
+                    imageType = "Thumb",
+                    targetItemId = itemId
+                )
+            ).first()
+        )
+
+        if (!seriesId.isNullOrBlank()) {
+            addCandidate(
+                mediaRepository.getBackdropImageUrl(
+                    itemId = seriesId,
+                    width = 1920,
+                    height = 1080,
+                    quality = 100,
+                    enableImageEnhancers = false,
+                    imageTag = item.imageTagFor(
+                        imageType = "Backdrop",
+                        targetItemId = seriesId
+                    )
+                ).first()
+            )
+            addCandidate(
+                mediaRepository.getImageUrl(
+                    itemId = seriesId,
+                    imageType = "Primary",
+                    width = 1920,
+                    height = 1080,
+                    quality = 100,
+                    enableImageEnhancers = false,
+                    imageTag = item.imageTagFor(
+                        imageType = "Primary",
+                        targetItemId = seriesId
+                    )
+                ).first()
+            )
+        }
+    } else {
+        addCandidate(
+            mediaRepository.getBackdropImageUrl(
+                itemId = itemId,
+                width = 1200,
+                height = 675,
+                quality = 95,
+                imageTag = item.imageTagFor(
+                    imageType = "Backdrop",
+                    targetItemId = itemId
+                )
+            ).first()
+        )
+
+        addCandidate(
+            mediaRepository.getImageUrl(
+                itemId = itemId,
+                imageType = "Primary",
+                width = 1200,
+                height = 675,
+                quality = 95,
+                imageTag = item.imageTagFor(
+                    imageType = "Primary",
+                    targetItemId = itemId
+                )
+            ).first()
+        )
+    }
+
+    return candidates
+}
+
+private suspend fun logoImage(
+    item: BaseItemDto,
+    mediaRepository: MediaRepository
+): String? {
+    val logoItemId = if (item.type == "Episode") {
+        item.seriesId ?: item.id
+    } else {
+        item.id
+    } ?: return null
+
+    return mediaRepository.getImageUrl(
+        itemId = logoItemId,
+        imageType = "Logo",
+        width = 1200,
+        quality = 95,
+        imageTag = item.imageTagFor(
+            imageType = "Logo",
+            targetItemId = logoItemId
+        )
+    ).first()
+}
+
+private fun episodeHeaderText(item: BaseItemDto): String? {
+    if (item.type != "Episode") return null
+    val title = item.name?.takeIf { it.isNotBlank() } ?: "未知"
+    val season = item.parentIndexNumber
+    val episode = item.indexNumber
+    return when {
+        season != null && episode != null -> "第${season}季 第${episode}集 - $title"
+        episode != null -> "第${episode}集 - $title"
+        else -> title
+    }
+}
+
+private fun OptionLabels(options: List<String>): List<String> {
+    val counts = mutableMapOf<String, Int>()
+    return options.map { option ->
+        val seen = (counts[option] ?: 0) + 1
+        counts[option] = seen
+        if (seen == 1) option else "$option ($seen)"
+    }
+}
+
+private data class SeriesSeasonSelectionDialogState(
+    val availableBytes: Long,
+    val options: List<StorageSelectionOption>,
+    val episodesBySeasonId: Map<String, List<BaseItemDto>>
+) {
+    companion object {
+        fun fromEstimate(estimate: BatchDownloadEstimate): SeriesSeasonSelectionDialogState {
+            data class SeasonGroupSummary(
+                val id: String,
+                val title: String,
+                val subtitle: String,
+                val requiredBytes: Long,
+                val seasonNumber: Int?,
+                val episodes: List<BaseItemDto>
+            )
+
+            val grouped = estimate.candidates
+                .filter { !it.item.id.isNullOrBlank() }
+                .groupBy { candidate -> seasonGroupKey(candidate.item) }
+
+            val groupedSummaries = grouped.map { (seasonId, candidates) ->
+                val orderedCandidates = candidates.sortedWith(
+                    compareBy<BatchDownloadCandidate>(
+                        { it.item.parentIndexNumber ?: Int.MAX_VALUE },
+                        { it.item.indexNumber ?: Int.MAX_VALUE },
+                        { it.item.name.orEmpty() }
+                    )
+                )
+                val firstItem = orderedCandidates.first().item
+                val seasonNumber = firstItem.parentIndexNumber
+                val title = when {
+                    !firstItem.seasonName.isNullOrBlank() -> firstItem.seasonName.orEmpty()
+                    seasonNumber != null -> "Season $seasonNumber"
+                    else -> "Season"
+                }
+
+                val episodeCount = orderedCandidates.size
+                val requiredBytes = orderedCandidates.sumOf { it.remainingBytes ?: 0L }
+
+                SeasonGroupSummary(
+                    id = seasonId,
+                    title = title,
+                    subtitle = episodeCountLabel(episodeCount),
+                    requiredBytes = requiredBytes,
+                    seasonNumber = seasonNumber,
+                    episodes = orderedCandidates.map { it.item }
+                )
+            }.sortedWith(
+                compareBy<SeasonGroupSummary>({ it.seasonNumber ?: Int.MAX_VALUE }, { it.title })
+            )
+
+            return SeriesSeasonSelectionDialogState(
+                availableBytes = estimate.availableBytes,
+                options = groupedSummaries.map { summary ->
+                    StorageSelectionOption(
+                        id = summary.id,
+                        title = summary.title,
+                        subtitle = summary.subtitle,
+                        requiredBytes = summary.requiredBytes
+                    )
+                },
+                episodesBySeasonId = groupedSummaries.associate { it.id to it.episodes }
+            )
+        }
+    }
+}
+
+private fun seasonGroupKey(item: BaseItemDto): String {
+    return item.seasonId?.takeIf { it.isNotBlank() }
+        ?: item.parentId?.takeIf { it.isNotBlank() }
+        ?: item.parentIndexNumber?.let { "season_$it" }
+        ?: "season_unknown_${item.id.orEmpty()}"
+}
+
+private fun episodeCountLabel(count: Int): String {
+    return "$count episode" + if (count == 1) "" else "s"
+}
+
+@Composable
+private fun SeasonsSection(
+    seriesId: String,
+    mediaRepository: MediaRepository,
+    surfaceColor: Color = HillsDetailSurface,
+    onSeasonClick: (String, String, String?) -> Unit = { _, _, _ -> }
+) {
+    var seasons by remember { mutableStateOf<List<BaseItemDto>>(emptyList()) }
+    var isLoadingSeasons by remember { mutableStateOf(true) }
+
+    // Load seasons
+    LaunchedEffect(seriesId) {
+        isLoadingSeasons = true
+        try {
+            val result = mediaRepository.getSeasons(seriesId)
+            result.fold(
+                onSuccess = { seasonList ->
+                    seasons = seasonList.sortedBy { it.indexNumber ?: 0 }
+                    isLoadingSeasons = false
+                },
+                onFailure = {
+                    isLoadingSeasons = false
+                }
+            )
+        } catch (e: Exception) {
+            isLoadingSeasons = false
+        }
+    }
+
+    Column(
+        modifier = Modifier.padding(top = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Seasons Section
+        Text(
+            text = "季",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+
+        when {
+            isLoadingSeasons -> {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(horizontal = 0.dp)
+                ) {
+                    items(3) {
+                        SeasonCardSkeleton(surfaceColor = surfaceColor)
+                    }
+                }
+            }
+
+            seasons.isNotEmpty() -> {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(horizontal = 0.dp)
+                ) {
+                    items(seasons) { season ->
+                        SeasonCard(
+                            season = season,
+                            mediaRepository = mediaRepository,
+                            surfaceColor = surfaceColor,
+                            onClick = {
+                                season.id?.let { seasonId ->
+                                    onSeasonClick(seriesId, seasonId, season.name)
+                                }
+                            },
+                            onPreviewClick = {
+                                // TODO: Implement season preview functionality
+                                season.id?.let { seasonId ->
+                                    onSeasonClick(seriesId, seasonId, season.name)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun DetailScreenPreview() {
+    MaterialTheme {
+        val mockItem = BaseItemDto(
+            id = "mock-id",
+            name = "Seal Team",
+            overview = "After his best friend is killed in a shark attack, Quinn, a lovable yet tenacious seal assembles a SEAL TEAM to fight back against a gang of sharks overtaking the neighborhood.",
+            productionYear = 2021,
+            runTimeTicks = 6000000000L, // 1h 40m
+            communityRating = 7.6f,
+            officialRating = "TV-Y7",
+            genres = listOf("Animation", "Family", "Adventure"),
+            userData = null,
+            people = null,
+            studios = null,
+            mediaStreams = listOf(
+                MediaStream(
+                    type = "Video",
+                    codec = "h264",
+                    width = 1920,
+                    height = 1080
+                ),
+                MediaStream(
+                    type = "Audio",
+                    codec = "aac",
+                    channels = 2,
+                    language = "eng"
+                )
+            )
+        )
+
+        DetailContent(
+            item = mockItem,
+            onBackPressed = {},
+            onPlayClick = { _, _ -> }
+        )
+    }
+}
+
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun DetailScreenLongRatingPreview() {
+    MaterialTheme {
+        val mockItem = BaseItemDto(
+            id = "mock-id",
+            name = "The Dark Knight",
+            overview = "When the menace known as the Joker wreaks havoc and chaos on the people of Gotham, Batman must accept one of the greatest psychological and physical tests of his ability to fight injustice.",
+            productionYear = 2008,
+            runTimeTicks = 9120000000L, // 2h 32m
+            communityRating = 9.0f,
+            officialRating = "Not Rated", // Long rating text
+            genres = listOf("Action", "Crime", "Drama", "Thriller"),
+            userData = null,
+            people = null,
+            studios = null,
+            mediaStreams = listOf(
+                MediaStream(
+                    type = "Video",
+                    codec = "h264",
+                    width = 3840,
+                    height = 2160,
+                    videoRange = "HDR"
+                ),
+                MediaStream(
+                    type = "Audio",
+                    codec = "eac3",
+                    channels = 6,
+                    language = "eng",
+                    title = "Dolby Digital+ 5.1"
+                ),
+                MediaStream(
+                    type = "Subtitle",
+                    codec = "subrip",
+                    language = "eng"
+                )
+            )
+        )
+
+        DetailContent(
+            item = mockItem,
+            onBackPressed = {},
+            onPlayClick = { _, _ -> }
+        )
+    }
+}
+
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun DetailScreenSeriesPreview() {
+    MaterialTheme {
+        val mockItem = BaseItemDto(
+            id = "mock-id",
+            name = "Planet Earth",
+            type = "Series",
+            overview = "A landmark documentary series showcasing Earth's natural wonders and wildlife.",
+            productionYear = 2006,
+            communityRating = 9.4f,
+            officialRating = "TV-PG",
+            genres = listOf("Documentary", "Nature"),
+            userData = null,
+            people = null,
+            studios = null
+        )
+
+        DetailContent(
+            item = mockItem,
+            onBackPressed = {},
+            onPlayClick = { _, _ -> }
+        )
+    }
+}
+
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+fun DetailScreenManyGenresPreview() {
+    MaterialTheme {
+        val mockItem = BaseItemDto(
+            id = "mock-id",
+            name = "Genre Overload",
+            overview = "A movie that somehow fits into every possible genre category.",
+            productionYear = 2024,
+            runTimeTicks = 7200000000L, // 2h
+            communityRating = 8.2f,
+            officialRating = "R",
+            genres = listOf(
+                "Action",
+                "Adventure",
+                "Comedy",
+                "Drama",
+                "Fantasy",
+                "Horror",
+                "Mystery",
+                "Romance",
+                "Sci-Fi",
+                "Thriller"
+            ),
+            userData = null,
+            people = null,
+            studios = null,
+            mediaStreams = listOf(
+                MediaStream(
+                    type = "Video",
+                    codec = "hevc",
+                    width = 1920,
+                    height = 1080
+                ),
+                MediaStream(
+                    type = "Audio",
+                    codec = "truehd",
+                    channels = 8,
+                    language = "eng",
+                    title = "Dolby TrueHD 7.1 Atmos"
+                ),
+                MediaStream(
+                    type = "Audio",
+                    codec = "ac3",
+                    channels = 6,
+                    language = "spa"
+                ),
+                MediaStream(
+                    type = "Subtitle",
+                    codec = "ass",
+                    language = "eng"
+                ),
+                MediaStream(
+                    type = "Subtitle",
+                    codec = "subrip",
+                    language = "spa"
+                )
+            )
+        )
+
+        DetailContent(
+            item = mockItem,
+            onBackPressed = {},
+            onPlayClick = { _, _ -> }
+        )
+    }
+}
+
+@Composable
+fun DetailScreenSkeleton(
+    onBackPressed: () -> Unit = {},
+    inheritedSurfaceColor: Color = HillsDetailSurface
+) {
+    val dynamicColors = rememberDetailDynamicColors(inheritedSurfaceColor)
+    val skeletonBaseColor = detailBlendColor(inheritedSurfaceColor, Color.White, 0.16f)
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        dynamicColors.surface,
+                        detailBlendColor(dynamicColors.surface, Color.Black, 0.08f),
+                        detailBlendColor(dynamicColors.surface, Color.Black, 0.18f)
+                    )
+                )
+            ),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(330.dp)
+            ) {
+                ShimmerEffect(
+                    modifier = Modifier.fillMaxSize(),
+                    cornerRadius = 0f,
+                    baseColor = skeletonBaseColor
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    inheritedSurfaceColor.copy(alpha = 0.20f),
+                                    inheritedSurfaceColor.copy(alpha = 0.46f),
+                                    dynamicColors.midSurface.copy(alpha = 0.78f),
+                                    dynamicColors.surface
+                                )
+                            )
+                        )
+                )
+
+            }
+        }
+
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp)
+                    .offset(y = (-58).dp)
+            ) {
+                ShimmerEffect(
+                    modifier = Modifier
+                        .fillMaxWidth(0.62f)
+                        .height(62.dp),
+                    cornerRadius = 10f,
+                    baseColor = skeletonBaseColor
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ShimmerEffect(modifier = Modifier
+                        .width(56.dp)
+                        .height(16.dp), cornerRadius = 8f, baseColor = skeletonBaseColor)
+                    ShimmerEffect(modifier = Modifier
+                        .width(42.dp)
+                        .height(16.dp), cornerRadius = 8f, baseColor = skeletonBaseColor)
+                    ShimmerEffect(modifier = Modifier
+                        .width(64.dp)
+                        .height(16.dp), cornerRadius = 8f, baseColor = skeletonBaseColor)
+                    ShimmerEffect(modifier = Modifier
+                        .width(50.dp)
+                        .height(18.dp), cornerRadius = 8f, baseColor = skeletonBaseColor)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                ShimmerEffect(
+                    modifier = Modifier
+                        .fillMaxWidth(0.78f)
+                        .height(14.dp),
+                    cornerRadius = 8f
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                repeat(2) {
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth(0.82f)
+                            .height(18.dp),
+                        cornerRadius = 8f
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                ShimmerEffect(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp),
+                    cornerRadius = 18f,
+                    baseColor = skeletonBaseColor
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        cornerRadius = 24f,
+                        baseColor = skeletonBaseColor
+                    )
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                        cornerRadius = 24f,
+                        baseColor = skeletonBaseColor
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                ShimmerEffect(
+                    modifier = Modifier
+                        .width(110.dp)
+                        .height(22.dp),
+                    cornerRadius = 10f,
+                    baseColor = skeletonBaseColor
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                repeat(3) {
+                    ShimmerEffect(
+                        modifier = Modifier
+                            .fillMaxWidth(if (it == 2) 0.72f else 1f)
+                            .height(14.dp),
+                        cornerRadius = 8f
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+            }
+        }
+    }
+}

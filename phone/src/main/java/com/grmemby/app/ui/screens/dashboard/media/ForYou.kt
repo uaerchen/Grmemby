@@ -1,0 +1,498 @@
+package com.grmemby.app.ui.screens.dashboard.media
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.grmemby.app.R
+import com.grmemby.app.ui.components.common.SeerPersonRole
+import com.grmemby.app.ui.components.common.SeerTitleCard
+import com.grmemby.app.ui.components.common.fetchSeerCreditTitles
+import com.grmemby.app.ui.components.common.filterSeerTitlesForRow
+import com.grmemby.app.ui.components.common.seerPersonId
+import com.grmemby.app.ui.screens.dashboard.home.LibraryItemCard
+import androidx.compose.foundation.layout.statusBarsPadding
+import com.grmemby.shared.util.image.disableEmbyPosterEnhancers
+import com.grmemby.data.model.BaseItemDto
+import com.grmemby.data.model.RecommendationDto
+import com.grmemby.data.model.SeerrRecommendationTitle
+import com.grmemby.data.repository.AuthRepositoryProvider
+import com.grmemby.data.repository.MediaRepository
+import com.grmemby.data.repository.MediaRepositoryProvider
+import com.grmemby.data.repository.SeerrRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+
+private data class RecommendationSectionUi(
+    val title: String,
+    val items: List<BaseItemDto>,
+    val seerItems: List<SeerrRecommendationTitle> = emptyList(),
+    val seerRole: SeerPersonRole? = null,
+    val personName: String? = null
+)
+
+private data class RecommendationFeedState(
+    val sections: List<RecommendationSectionUi>,
+    val error: String?
+)
+
+@Composable
+fun ForYou(onItemClick: (BaseItemDto) -> Unit = {}) {
+    var sections by remember { mutableStateOf<List<RecommendationSectionUi>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    val context = LocalContext.current
+    val authRepository = remember { AuthRepositoryProvider.getInstance(context) }
+    val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val seerrRepository = remember(context) { SeerrRepository(context) }
+    val disablePosterEnhancers = disableEmbyPosterEnhancers()
+    val scope = rememberCoroutineScope()
+    val activeServerId by authRepository.getActiveServerId()
+        .collectAsState(initial = authRepository.getActiveSessionSnapshot().activeServerId)
+
+    fun refresh() {
+        scope.launch {
+            isLoading = true
+            val result = loadRecommendationFeed(mediaRepository)
+            sections = result.sections
+            error = result.error
+            isLoading = false
+
+            result.sections
+                .filter { it.seerRole != null }
+                .forEach { section ->
+                    launch {
+                        val seerItems = loadSectionSeerRecommendations(
+                            section = section,
+                            activeServerId = activeServerId,
+                            mediaRepository = mediaRepository,
+                            seerrRepository = seerrRepository
+                        )
+                        var updatedSection = section.copy(seerItems = seerItems)
+                        if (updatedSection != section) {
+                            sections = sections.replaceSection(updatedSection)
+                        }
+
+                        seerItems
+                            .mapNotNull { seerItem ->
+                                val seedItemId = updatedSection.items.firstOrNull()?.id
+                                val jellyfinMediaId = seerItem.jellyfinMediaId
+                                    ?.takeIf { it.isNotBlank() && it != seedItemId }
+                                    ?: return@mapNotNull null
+                                jellyfinMediaId to seerItem
+                            }
+                            .distinctBy { (jellyfinMediaId, _) -> jellyfinMediaId }
+                            .forEach { (jellyfinMediaId, seerItem) ->
+                                val localItem = mediaRepository.getItemById(jellyfinMediaId).getOrNull() ?: return@forEach
+                                val localItemId = localItem.id ?: return@forEach
+                                updatedSection = if (updatedSection.items.any { it.id == localItemId }) {
+                                    updatedSection.copy(
+                                        seerItems = updatedSection.seerItems.filterNot { it.tmdbId == seerItem.tmdbId }
+                                    )
+                                } else {
+                                    updatedSection.copy(
+                                        items = updatedSection.items + localItem,
+                                        seerItems = updatedSection.seerItems.filterNot { it.tmdbId == seerItem.tmdbId }
+                                    )
+                                }
+                                sections = sections.replaceSection(updatedSection)
+                            }
+                    }
+                }
+        }
+    }
+
+    LaunchedEffect(activeServerId) {
+        refresh()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding(),
+                color = Color.Black
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.dashboard_for_you),
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                when {
+                    isLoading -> {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = Color(0xFFE86E2F))
+                        }
+                    }
+
+                    sections.isNotEmpty() -> {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(bottom = 110.dp)
+                        ) {
+                            items(
+                                items = sections,
+                                key = { section -> section.title }
+                            ) { section ->
+                                RecommendationRail(
+                                    section = section,
+                                    mediaRepository = mediaRepository,
+                                    disablePosterEnhancers = disablePosterEnhancers,
+                                    onItemClick = onItemClick
+                                )
+                            }
+                        }
+                    }
+
+                    error != null -> {
+                        ErrorCard(
+                            message = error.orEmpty(),
+                            onRetry = ::refresh
+                        )
+                    }
+
+                    else -> {
+                        EmptyCard()
+                    }
+                }
+            }
+        }
+    }
+}
+
+private suspend fun loadRecommendationFeed(mediaRepository: MediaRepository): RecommendationFeedState {
+    return try {
+        val viewsResult = mediaRepository.getUserViews()
+        val movieLibraries = viewsResult.getOrNull()?.items
+            .orEmpty()
+            .filter { view ->
+                view.id != null &&
+                    view.collectionType.equals("movies", ignoreCase = true)
+            }
+
+        val requests = if (movieLibraries.isNotEmpty()) {
+            movieLibraries
+        } else {
+            listOf(BaseItemDto(name = null, id = null, collectionType = "movies"))
+        }
+
+        val results = coroutineScope {
+            requests.map { library ->
+                async {
+                    mediaRepository.getMovieRecommendations(
+                        parentId = library.id,
+                        categoryLimit = 8,
+                        itemLimit = 18
+                    )
+                }
+            }.awaitAll()
+        }
+
+        val rawSections = results.flatMap { result ->
+            result.getOrNull()
+                .orEmpty()
+                .mapNotNull { recommendation ->
+                    val title = recommendation.title()
+                    val items = recommendation.items.orEmpty()
+                    if (title == null || items.isEmpty()) {
+                        null
+                    } else {
+                        RecommendationSectionUi(
+                            title = title,
+                            items = items,
+                            seerRole = recommendation.seerRole(),
+                            personName = recommendation.baselineItemName?.takeIf { it.isNotBlank() }
+                        )
+                    }
+                }
+        }
+
+        val sections = rawSections
+            .groupBy { it.title }
+            .map { (_, groupedSections) ->
+                val seed = groupedSections.first()
+                RecommendationSectionUi(
+                    title = seed.title,
+                    items = groupedSections
+                        .flatMap { it.items }
+                        .distinctBy { item -> item.id ?: item.name.orEmpty() },
+                    seerRole = seed.seerRole,
+                    personName = seed.personName
+                )
+            }
+            .filter { it.items.isNotEmpty() }
+
+        if (sections.isNotEmpty()) {
+            RecommendationFeedState(sections = sections, error = null)
+        } else {
+            val fallback = mediaRepository.getSuggestions(
+                mediaType = "Movie",
+                limit = 24
+            )
+            val fallbackItems = fallback.getOrNull().orEmpty()
+            if (fallbackItems.isNotEmpty()) {
+                RecommendationFeedState(
+                    sections = listOf(
+                        RecommendationSectionUi(
+                            title = "推荐",
+                            items = fallbackItems
+                        )
+                    ),
+                    error = null
+                )
+            } else {
+                val recommendationError = results
+                    .asSequence()
+                    .mapNotNull { it.exceptionOrNull()?.message }
+                    .firstOrNull()
+                RecommendationFeedState(
+                    sections = emptyList(),
+                    error = listOfNotNull(
+                        recommendationError,
+                        fallback.exceptionOrNull()?.message,
+                        viewsResult.exceptionOrNull()?.message
+                    ).firstOrNull()
+                )
+            }
+        }
+    } catch (e: Exception) {
+        RecommendationFeedState(emptyList(), e.message ?: "Unknown error")
+    }
+}
+
+private fun RecommendationDto.title(): String? {
+    val baseline = baselineItemName?.takeIf { it.isNotBlank() }
+    return when (recommendationType) {
+        "HasDirectorFromRecentlyPlayed",
+        "HasLikedDirector" -> baseline?.let { "Directed by $it" }
+
+        "HasActorFromRecentlyPlayed",
+        "HasLikedActor" -> baseline?.let { "Starring $it" }
+
+        "SimilarToLikedItem" -> baseline?.let { "Because you like $it" }
+        "SimilarToRecentlyPlayed" -> baseline?.let { "Because you watched $it" }
+        else -> baseline
+    }
+}
+
+private fun RecommendationDto.seerRole(): SeerPersonRole? {
+    return when (recommendationType) {
+        "HasDirectorFromRecentlyPlayed",
+        "HasLikedDirector" -> SeerPersonRole.DIRECTOR
+
+        "HasActorFromRecentlyPlayed",
+        "HasLikedActor" -> SeerPersonRole.ACTOR
+
+        else -> null
+    }
+}
+
+private suspend fun loadSectionSeerRecommendations(
+    section: RecommendationSectionUi,
+    activeServerId: String?,
+    mediaRepository: MediaRepository,
+    seerrRepository: SeerrRepository
+): List<SeerrRecommendationTitle> {
+    val role = section.seerRole ?: return emptyList()
+    val personName = section.personName ?: return emptyList()
+    val seedItem = section.items.firstOrNull() ?: return emptyList()
+    if (activeServerId.isNullOrBlank()) return emptyList()
+    val personId = seerPersonId(
+        items = section.items,
+        personName = personName,
+        role = role,
+        mediaRepository = mediaRepository
+    ) ?: return emptyList()
+
+    return filterSeerTitlesForRow(
+        seerrTitles = fetchSeerCreditTitles(
+            item = seedItem,
+            personId = personId,
+            role = role,
+            activeServerId = activeServerId,
+            mediaRepository = mediaRepository,
+            seerrRepository = seerrRepository
+        ),
+        baseTitles = section.items,
+        item = seedItem,
+    )
+}
+
+private fun List<RecommendationSectionUi>.replaceSection(
+    updatedSection: RecommendationSectionUi
+): List<RecommendationSectionUi> {
+    return map { section ->
+        if (section.title == updatedSection.title) updatedSection else section
+    }
+}
+
+@Composable
+private fun RecommendationRail(
+    section: RecommendationSectionUi,
+    mediaRepository: MediaRepository,
+    disablePosterEnhancers: Boolean,
+    onItemClick: (BaseItemDto) -> Unit
+) {
+    if (section.items.size + section.seerItems.size <= 1) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp, bottom = 8.dp)
+    ) {
+        Text(
+            text = section.title,
+            color = Color.White,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)
+        ) {
+            items(
+                items = section.items,
+                key = { item -> item.id ?: item.name ?: section.title }
+            ) { item ->
+                LibraryItemCard(
+                    item = item,
+                    mediaRepository = mediaRepository,
+                    disableImageEnhancers = disablePosterEnhancers,
+                    onClick = { onItemClick(item) }
+                )
+            }
+
+            items(
+                items = section.seerItems,
+                key = { item -> "seer-${section.title}-${item.tmdbId}" }
+            ) { item ->
+                SeerTitleCard(item)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ErrorCard(
+    message: String,
+    onRetry: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF121212))
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = stringResource(R.string.dashboard_for_you_load_error),
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = message,
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onRetry,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE86E2F))
+            ) {
+                Text(text = stringResource(R.string.try_again))
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyCard() {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF121212))
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Movie,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.42f),
+                modifier = Modifier.size(34.dp)
+            )
+            Spacer(modifier = Modifier.height(14.dp))
+            Text(
+                text = stringResource(R.string.dashboard_for_you_empty_title),
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.dashboard_for_you_empty_message),
+                color = Color.White.copy(alpha = 0.64f),
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
+        }
+    }
+}

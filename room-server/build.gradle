@@ -1,0 +1,53 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm'
+    id 'org.jetbrains.kotlin.plugin.serialization'
+    id 'application'
+}
+
+application {
+    mainClass = 'com.grmemby.roomserver.RoomServerKt'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+dependencies {
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2'
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0'
+    implementation 'io.ktor:ktor-server-core:3.4.3'
+    implementation 'io.ktor:ktor-server-netty:3.4.3'
+    implementation 'io.ktor:ktor-server-websockets:3.4.3'
+    implementation 'io.ktor:ktor-server-content-negotiation:3.4.3'
+    implementation 'io.ktor:ktor-server-cors:3.4.3'
+    implementation 'io.ktor:ktor-serialization-kotlinx-json:3.4.3'
+    implementation 'ch.qos.logback:logback-classic:1.5.21'
+
+    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5:2.3.21'
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
+test {
+    useJUnitPlatform()
+}
+
+tasks.register('fatJar', Jar) {
+    group = 'build'
+    description = 'Build an executable fat jar for deploying the room server.'
+    archiveBaseName = 'grmemby-room-server-all'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes 'Main-Class': application.mainClass.get()
+    }
+    from sourceSets.main.output
+    dependsOn configurations.runtimeClasspath
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}

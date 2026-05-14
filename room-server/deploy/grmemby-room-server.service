@@ -1,0 +1,16 @@
+[Unit]
+Description=Grmemby public watch-party room server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/grmemby-room-server
+Environment=PORT=8080
+ExecStart=/usr/bin/java -jar /opt/grmemby-room-server/app.jar
+Restart=on-failure
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target

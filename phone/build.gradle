@@ -1,0 +1,203 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.plugin.compose'
+    id 'org.jetbrains.kotlin.plugin.serialization'
+    id 'com.google.dagger.hilt.android'
+    id 'com.google.devtools.ksp'
+}
+
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+def signingValue = { String key, String envKey ->
+    def prop = keystoreProperties.getProperty(key)
+    if (prop != null && !prop.trim().isEmpty()) return prop.trim()
+    def env = System.getenv(envKey)
+    return (env != null && !env.trim().isEmpty()) ? env.trim() : null
+}
+
+def buildConfigString = { String value ->
+    return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+}
+def roomServerUrl = (project.findProperty("grmemby.roomServerUrl") ?: "http://127.0.0.1:8080").toString().trim()
+
+android {
+    namespace = 'com.grmemby.app'
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "com.ares.emby"
+        minSdk = 27
+        targetSdk = 36
+        versionCode = rootProject.ext.appVersionCode as Integer
+        versionName = rootProject.ext.appVersionName as String
+        buildConfigField "String", "GRMEMBY_ROOM_SERVER_URL", buildConfigString(roomServerUrl)
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables {
+            useSupportLibrary = true
+        }
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+    }
+
+    signingConfigs {
+        release {
+            def storeFilePath = signingValue("storeFile", "GRMEMBY_STORE_FILE") ?: "grmemby-release.keystore"
+            def storePasswordValue = signingValue("storePassword", "GRMEMBY_STORE_PASSWORD")
+            def keyAliasValue = signingValue("keyAlias", "GRMEMBY_KEY_ALIAS")
+            def keyPasswordValue = signingValue("keyPassword", "GRMEMBY_KEY_PASSWORD")
+
+            if (storePasswordValue != null && keyAliasValue != null && keyPasswordValue != null) {
+                storeFile file(storeFilePath)
+                storePassword storePasswordValue
+                keyAlias keyAliasValue
+                keyPassword keyPasswordValue
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled = false
+            shrinkResources = false
+        }
+        optimized {
+            initWith release
+            matchingFallbacks = ['release', 'debug']
+            minifyEnabled = true
+            // Termux-native aapt2 currently produces an invalid optimized APK
+            // (missing AndroidManifest.xml/resources.arsc) when resource shrinking runs.
+            shrinkResources = false
+            debuggable = false
+            signingConfig signingConfigs.debug
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        release {
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlin {
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        }
+    }
+
+    buildFeatures {
+        buildConfig = true
+        compose = true
+    }
+
+    packagingOptions {
+        jniLibs {
+            // Keep APK download size reasonable: package native media libs compressed
+            // and let Android extract them on install instead of storing them raw in the APK.
+            useLegacyPackaging = true
+        }
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+        }
+    }
+
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        variant.outputs.each { output ->
+            def buildTypeName = variant.buildType
+            def versionName = rootProject.ext.appVersionName as String
+            output.outputFileName.set("grmemby-phone-${buildTypeName}-${versionName}.apk")
+        }
+    }
+}
+
+dependencies {
+    // Project modules
+    implementation project(':shared')
+    implementation project(':data')
+    implementation project(':core')
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0'
+
+    // Core Android
+    implementation 'androidx.core:core-ktx:1.18.0'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.10.0'
+    implementation 'androidx.activity:activity-compose:1.13.0'
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'androidx.core:core-splashscreen:1.2.0'
+
+    // Compose BOM
+    implementation platform('androidx.compose:compose-bom:2026.04.01')
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.ui:ui-graphics'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.material:material-icons-extended'
+
+    // Navigation
+    implementation 'androidx.navigation:navigation-compose:2.9.8'
+
+    // ViewModel
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0'
+
+    // Image Loading with memory optimization
+    implementation 'io.coil-kt.coil3:coil-compose:3.4.0'
+    implementation 'io.coil-kt.coil3:coil-gif:3.4.0'
+    implementation 'io.coil-kt.coil3:coil-network-okhttp:3.4.0'
+    implementation 'io.coil-kt.coil3:coil-svg:3.4.0'
+
+    // Coroutines
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
+
+    // Networking
+    implementation 'com.squareup.okhttp3:okhttp:5.3.2'
+
+    // DataStore
+    implementation 'androidx.datastore:datastore-preferences:1.2.1'
+    implementation 'androidx.profileinstaller:profileinstaller:1.4.1'
+
+    // Media3 ExoPlayer for video playback
+    implementation 'androidx.media3:media3-exoplayer:1.10.0'
+    implementation 'androidx.media3:media3-exoplayer-dash:1.10.0'
+    implementation 'androidx.media3:media3-exoplayer-hls:1.10.0'
+    implementation 'androidx.media3:media3-exoplayer-smoothstreaming:1.10.0'
+    implementation 'androidx.media3:media3-ui:1.10.0'
+    implementation 'androidx.media3:media3-session:1.10.0'
+    implementation 'androidx.media3:media3-common:1.10.0'
+    implementation 'org.jellyfin.media3:media3-ffmpeg-decoder:1.9.0+1'
+    implementation 'dev.jdtech.mpv:libmpv:1.0.0'
+
+    // Audio and video processing
+    implementation 'androidx.media3:media3-effect:1.10.0'
+
+    // Permissions handling
+    implementation 'com.google.accompanist:accompanist-permissions:0.37.3'
+
+    // Google Cast / screen casting
+    implementation 'com.google.android.gms:play-services-cast-framework:22.3.1'
+    // Hilt
+    implementation 'com.google.dagger:hilt-android:2.59.2'
+    ksp 'com.google.dagger:hilt-compiler:2.59.2'
+    implementation 'androidx.hilt:hilt-navigation-compose:1.3.0'
+
+    // Testing
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.3.0'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.7.0'
+    androidTestImplementation platform('androidx.compose:compose-bom:2026.04.01')
+    androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+    debugImplementation 'androidx.compose.ui:ui-test-manifest'
+}

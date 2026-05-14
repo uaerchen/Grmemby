@@ -1,0 +1,541 @@
+<resources>
+    <string name="app_name">Grmemby</string>
+
+    <!-- General -->
+    <string name="loading">加载中…</string>
+    <string name="error">错误</string>
+    <string name="cancel">取消</string>
+    <string name="ok">确定</string>
+    <string name="save">保存</string>
+    <string name="delete">删除</string>
+    <string name="edit">编辑</string>
+    <string name="search">搜索</string>
+    <string name="settings">设置</string>
+
+    <!-- Server Connection -->
+    <string name="server_url">服务器地址</string>
+    <string name="server_url_hint">https://你的-jellyfin-服务器.com</string>
+    <string name="connect">连接</string>
+    <string name="connecting">连接中…</string>
+    <string name="connection_failed">连接失败</string>
+    <string name="invalid_server_url">服务器地址无效</string>
+    <string name="server_not_found">找不到服务器</string>
+
+    <!-- Authentication -->
+    <string name="username">用户名</string>
+    <string name="password">密码</string>
+    <string name="login">登录</string>
+    <string name="logout">退出登录</string>
+    <string name="logging_in">登录中…</string>
+    <string name="login_failed">登录失败</string>
+    <string name="invalid_credentials">用户名或密码错误</string>
+    <string name="auth_connect_title">连接你的服务器</string>
+    <string name="auth_connect_subtitle">添加服务器后开始播放!</string>
+    <string name="auth_welcome_back">欢迎回来</string>
+    <string name="auth_sign_in_subtitle">登录以继续</string>
+    <string name="auth_connection_settings">连接设置</string>
+    <string name="auth_server_url_placeholder">https://media.example.test</string>
+    <string name="auth_connect_to_server">连接服务器</string>
+    <string name="auth_sign_in">登录</string>
+    <string name="auth_show_password">显示密码</string>
+    <string name="auth_hide_password">隐藏密码</string>
+    <string name="auth_quick_connect">快速连接</string>
+    <string name="auth_generating_code">正在生成验证码...</string>
+    <string name="auth_quick_connect_code">验证码：%1$s</string>
+    <string name="auth_quick_connect_approval_hint">请在服务器快速连接页面批准此验证码。</string>
+    <string name="auth_error_enter_server_url">请输入服务器地址</string>
+    <string name="auth_error_enter_username">请输入用户名</string>
+    <string name="auth_error_missing_server_url_quick_connect">快速连接缺少服务器地址。</string>
+    <string name="auth_error_quick_connect_start_failed">快速连接启动失败，请重试。</string>
+    <string name="auth_error_quick_connect_timed_out">快速连接超时，请重试。</string>
+    <string name="auth_error_login_invalid_request">请求无效，请检查用户名和密码。</string>
+    <string name="auth_error_login_invalid_credentials">用户名或密码不正确。</string>
+    <string name="auth_error_login_access_denied">访问被拒绝，你的账号无权登录。</string>
+    <string name="auth_error_login_service_not_found">找不到登录服务，请检查服务器地址。</string>
+    <string name="auth_error_login_too_many_attempts">尝试次数过多，请稍后再试。</string>
+    <string name="auth_error_login_server_error">服务器登录出错，请稍后再试。</string>
+    <string name="auth_error_login_timeout">登录超时，请重试。</string>
+    <string name="auth_error_login_cannot_reach_server">无法访问服务器，请检查地址和网络。</string>
+    <string name="auth_error_login_cannot_connect">无法连接服务器，请确认服务器在线。</string>
+    <string name="auth_error_login_generic">登录失败，请重试。</string>
+    <string name="auth_error_server_invalid_request">服务器请求无效，请检查服务器地址。</string>
+    <string name="auth_error_server_access_rejected">服务器拒绝请求，请检查服务器访问设置。</string>
+    <string name="auth_error_server_endpoint_not_found">找不到服务器接口，请确认服务器地址。</string>
+    <string name="auth_error_server_unavailable">服务器暂时不可用，请重试。</string>
+    <string name="auth_error_server_timeout">连接超时，请重试。</string>
+    <string name="auth_error_server_cannot_find">找不到此服务器，请检查地址和网络。</string>
+    <string name="auth_error_server_cannot_connect">无法连接服务器，请确认服务器在线。</string>
+    <string name="auth_error_server_generic">连接失败，请重试。</string>
+
+    <!-- Navigation -->
+    <string name="home">首页</string>
+    <string name="libraries">媒体库</string>
+    <string name="favorites">收藏</string>
+    <string name="downloads">下载</string>
+    <string name="profile">个人资料</string>
+
+    <!-- Media -->
+    <string name="movies">电影</string>
+    <string name="tv_shows">剧集</string>
+    <string name="music">音乐</string>
+    <string name="photos">照片</string>
+    <string name="books">图书</string>
+    <string name="play">播放</string>
+    <string name="pause">暂停</string>
+    <string name="stop">停止</string>
+    <string name="next">下一个</string>
+    <string name="previous">上一个</string>
+    <string name="resume">继续播放</string>
+    <string name="watched">已看</string>
+    <string name="unwatched">未看</string>
+    <string name="favorite">收藏</string>
+    <string name="unfavorite">取消收藏</string>
+
+    <!-- Content Descriptions -->
+    <string name="cd_poster">海报</string>
+    <string name="cd_backdrop">背景图</string>
+    <string name="cd_play_button">播放按钮</string>
+    <string name="cd_favorite_button">收藏按钮</string>
+    <string name="cd_menu_button">菜单按钮</string>
+    <string name="cd_back_button">返回按钮</string>
+    <string name="cd_search_button">搜索按钮</string>
+    <string name="cd_settings_button">设置按钮</string>
+
+    <!-- Casting -->
+    <string name="cast_to_device">投屏到设备</string>
+    <string name="cast_receiver_app_id">CC1AD845</string>
+
+    <!-- Dashboard -->
+    <string name="my_media">我的媒体</string>
+    <string name="suggestions">推荐</string>
+    <string name="search_hint">搜索...</string>
+    <string name="clear_search">清空搜索</string>
+    <string name="search_empty_default">输入关键词搜索电影和剧集</string>
+    <string name="search_no_results">没有找到结果</string>
+    <string name="search_results_shows">剧集</string>
+    <string name="search_results_episodes">分集</string>
+    <string name="search_result_unknown_title">未知标题</string>
+    <string name="search_result_unknown_episode">未知分集</string>
+    <string name="suggestions_empty">暂无推荐</string>
+    <string name="suggestions_type_movie">电影</string>
+    <string name="suggestions_type_tv_series">剧集</string>
+    <string name="suggestions_type_media">媒体</string>
+    <string name="my_media_load_error">无法加载媒体库</string>
+    <string name="my_media_unknown_error">出现错误</string>
+    <string name="try_again">重试</string>
+    <string name="my_media_empty_title">没有找到媒体库</string>
+    <string name="my_media_empty_message">请在 Jellyfin 中设置媒体库</string>
+    <string name="my_media_library_fallback">媒体库</string>
+    <string name="my_media_library_type_library">媒体库</string>
+    <string name="dashboard_failed_load_libraries">加载媒体库失败</string>
+    <string name="dashboard_continue_watching">继续观看</string>
+    <string name="dashboard_failed_continue_watching">加载继续观看失败</string>
+    <string name="continue_watching_remove">从继续观看中移除</string>
+    <string name="continue_watching_add_favorite">添加到收藏</string>
+    <string name="continue_watching_mark_watched">标记为已看</string>
+    <string name="continue_watching_remove_success">已从继续观看中移除</string>
+    <string name="continue_watching_remove_failed">移除失败，请稍后重试</string>
+    <string name="continue_watching_mark_watched_success">已标记为已看</string>
+    <string name="continue_watching_mark_watched_failed">标记已看失败，请稍后重试</string>
+    <string name="dashboard_next_up">即将播放</string>
+    <string name="dashboard_failed_next_up">加载即将播放失败</string>
+    <string name="dashboard_recently_added">最近添加 - %1$s</string>
+    <string name="dashboard_view_all">查看全部</string>
+    <string name="dashboard_no_items_found">没有找到内容</string>
+    <string name="dashboard_failed_load_my_media">加载我的媒体失败</string>
+    <string name="dashboard_for_you">为你推荐</string>
+    <string name="dashboard_for_you_empty_title">这里还没有内容</string>
+    <string name="dashboard_for_you_empty_message">开始观看电影或剧集后，这里会变成你的推荐中心。</string>
+    <string name="dashboard_for_you_load_error">无法生成推荐内容</string>
+
+    <plurals name="my_media_libraries_available">
+        <item quantity="one">%d 个媒体库可用</item>
+        <item quantity="other">%d 个媒体库可用</item>
+    </plurals>
+    <plurals name="my_media_items_count">
+        <item quantity="one">%d 个项目</item>
+        <item quantity="other">%d 个项目</item>
+    </plurals>
+
+    <!-- Player Settings -->
+    <string name="player_settings_title">播放器设置</string>
+    <string name="player_settings_section_player">播放器</string>
+    <string name="player_settings_player_engine">播放引擎</string>
+    <string name="player_settings_mpv_hardware_decoding">MPV 硬件解码</string>
+    <string name="player_settings_mpv_video_output">MPV 视频输出</string>
+    <string name="player_settings_mpv_audio_output">MPV 音频输出</string>
+    <string name="player_settings_section_decoding">解码</string>
+    <string name="player_settings_section_subtitles">字幕</string>
+    <string name="player_settings_section_transcoding">转码</string>
+    <string name="player_settings_section_video">视频</string>
+    <string name="player_settings_section_gestures">手势</string>
+    <string name="player_settings_section_seeking">跳转</string>
+    <string name="player_settings_section_player_cache">播放缓存</string>
+    <string name="player_settings_section_performance">性能</string>
+    <string name="player_settings_hardware_acceleration">硬件加速</string>
+    <string name="player_settings_hardware_acceleration_summary">使用 GPU 加速视频（推荐）</string>
+    <string name="player_settings_async_mediacodec">异步 MediaCodec</string>
+    <string name="player_settings_async_mediacodec_summary">提升高分辨率内容播放性能</string>
+    <string name="player_settings_subtitles">字幕</string>
+    <string name="player_settings_subtitles_summary">文字样式和字幕位置</string>
+    <string name="player_settings_streaming_quality">串流画质</string>
+    <string name="player_settings_audio_quality">音频质量</string>
+    <string name="player_settings_decoder_priority">视频解码优先级</string>
+    <string name="player_settings_gestures">手势</string>
+    <string name="player_settings_gestures_summary">播放时启用播放器手势快捷操作</string>
+    <string name="player_settings_volume_brightness_gestures">音量和亮度手势</string>
+    <string name="player_settings_volume_brightness_gestures_summary">右侧上下滑动调节音量，左侧上下滑动调节亮度</string>
+    <string name="player_settings_use_device_volume_in_player">使用设备音量</string>
+    <string name="player_settings_use_device_volume_in_player_summary">开始播放时使用当前设备媒体音量，而不是保存的播放器音量</string>
+    <string name="player_settings_use_device_brightness_in_player">使用设备亮度</string>
+    <string name="player_settings_use_device_brightness_in_player_summary">全屏播放默认跟随系统亮度；手势调节后仅本次播放使用播放器亮度</string>
+    <string name="player_settings_progress_seek_gesture">双击快进/快退</string>
+    <string name="player_settings_progress_seek_gesture_summary">双击左侧快退，双击右侧快进</string>
+    <string name="player_settings_zoom_gesture">缩放手势</string>
+    <string name="player_settings_zoom_gesture_summary">在播放器上捏合切换适应和缩放</string>
+    <string name="player_settings_long_press_speed_boost">长按倍速</string>
+    <string name="player_settings_long_press_speed_boost_summary">长按播放器左右区域临时加速，松开后恢复原速度</string>
+    <string name="player_settings_long_press_speed_boost_rate">长按倍速速率</string>
+    <string name="player_settings_long_press_speed_boost_rate_value">%1$d×</string>
+    <string name="player_settings_start_maximized">默认全屏</string>
+    <string name="player_settings_start_maximized_summary">开始播放时进入全屏模式</string>
+    <string name="player_settings_seek_backward">快退</string>
+    <string name="player_settings_seek_backward_summary">快退间隔</string>
+    <string name="player_settings_seek_forward">快进</string>
+    <string name="player_settings_seek_forward_summary">快进间隔</string>
+    <string name="player_settings_skip_intro">跳过片头</string>
+    <string name="player_settings_skip_intro_summary">有片头标记时显示跳过片头按钮</string>
+    <string name="player_settings_chapter_markers">章节标记</string>
+    <string name="player_settings_chapter_markers_summary">可用时在播放器进度条显示章节位置</string>
+    <string name="player_settings_seek_interval_value">%1$d 秒</string>
+    <string name="player_settings_disk_cache">磁盘缓存</string>
+    <string name="player_settings_disk_cache_summary">把已播放过的视频片段写入本机磁盘，快退或重播时优先读取缓存</string>
+    <string name="player_settings_player_cache_size">磁盘缓存大小</string>
+    <string name="player_settings_player_cache_size_value">%1$d MB</string>
+    <string name="player_settings_player_cache_size_summary">播放器磁盘缓存上限，最大 5000 MB</string>
+    <string name="player_settings_player_cache_time">缓存时长（秒）</string>
+    <string name="player_settings_player_cache_time_value">%1$d 秒</string>
+    <string name="player_settings_player_cache_time_summary">串流目标预缓冲时长</string>
+    <string name="player_settings_battery_optimization">电池优化</string>
+    <string name="player_settings_battery_optimization_summary">播放时降低功耗和网络负载</string>
+    <string name="player_settings_percent_value">%1$d%%</string>
+    <string name="player_settings_default_percent">默认 %1$d%%</string>
+    <string name="player_settings_default_value">默认 %1$s</string>
+    <string name="player_settings_decoder_priority_hardware_first">硬件解码</string>
+    <string name="player_settings_decoder_priority_software_first">软件解码</string>
+
+    <!-- Subtitle Settings -->
+    <string name="subtitle_settings_title">字幕</string>
+    <string name="subtitle_settings_section_style">样式</string>
+    <string name="subtitle_settings_section_position">位置</string>
+    <string name="subtitle_settings_text_size">文字大小</string>
+    <string name="subtitle_settings_text_color">文字颜色</string>
+    <string name="subtitle_settings_background_color">背景颜色</string>
+    <string name="subtitle_settings_edge_type">描边类型</string>
+    <string name="subtitle_settings_text_opacity">文字透明度</string>
+    <string name="subtitle_settings_text_opacity_summary">字幕文字可见度</string>
+    <string name="subtitle_settings_bottom_edge_position">底部边距</string>
+    <string name="subtitle_settings_bottom_edge_position_summary">距离底部边缘的距离</string>
+    <string name="subtitle_settings_top_edge_position">顶部边距</string>
+    <string name="subtitle_settings_top_edge_position_summary">距离顶部边缘的距离</string>
+
+    <!-- Player Transcoding Dialogs -->
+    <string name="player_dialog_audio_title">音频</string>
+    <string name="player_dialog_audio_summary">选择首选播放音轨</string>
+    <string name="player_dialog_subtitles_title">字幕</string>
+    <string name="player_dialog_subtitles_summary">选择字幕轨道</string>
+    <string name="player_dialog_tracks_count">条轨道</string>
+    <string name="player_dialog_streaming_quality_title">串流画质</string>
+    <string name="player_dialog_streaming_quality_summary">选择视频画质上限</string>
+    <string name="player_dialog_streaming_quality_count">种画质</string>
+    <string name="player_dialog_streaming_quality_original_summary">不限制码率</string>
+    <string name="player_dialog_audio_transcoding_title">音频转码</string>
+    <string name="player_dialog_audio_transcoding_summary">重启后保留所选音频和字幕轨道</string>
+    <string name="player_dialog_audio_transcoding_count">种模式</string>
+    <string name="player_dialog_audio_mode_auto_summary">环绕声播放的均衡默认值</string>
+    <string name="player_dialog_audio_mode_stereo_summary">强制服务器音频降为 2 声道</string>
+    <string name="player_dialog_audio_mode_surround_summary">最多保留 5.1 声道</string>
+    <string name="player_dialog_audio_mode_passthrough_summary">条件允许时最高 7.1 声道</string>
+    <string name="player_dialog_audio_mode_channels_2">最多 2 声道</string>
+    <string name="player_dialog_audio_mode_channels_6">最多 6 声道</string>
+    <string name="player_dialog_audio_mode_channels_8">最多 8 声道</string>
+    <string name="player_dialog_no_tracks_available">没有可用轨道</string>
+    <string name="player_skip_intro">跳过片头</string>
+    <string name="player_skip_recap">跳过前情提要</string>
+    <string name="player_skip_preview">跳过预览</string>
+    <string name="player_watch_credits">观看演职员表</string>
+    <string name="player_watch_next_episode">播放下一集</string>
+
+    <!-- Home Dashboard -->
+    <string name="dashboard_server_fallback">服务器</string>
+    <string name="dashboard_offline_empty_title">还没有离线下载</string>
+    <string name="dashboard_offline_empty_message">联网时下载电影或分集，离线后会显示在这里。</string>
+    <string name="dashboard_offline_downloads">离线下载</string>
+    <string name="dashboard_offline_notice">无网络连接，仅显示已下载媒体。</string>
+    <string name="dashboard_no_movies_found">没有找到电影</string>
+    <string name="dashboard_no_tv_shows_found">没有找到剧集</string>
+    <string name="feature_logo_content_description">%1$s 标志</string>
+    <string name="feature_profile_picture_content_description">%1$s 的头像</string>
+
+    <!-- View All -->
+    <string name="view_all_title">查看全部</string>
+    <string name="view_all_count">%1$d / %2$d 个项目</string>
+    <string name="view_all_error_title">出现错误</string>
+    <string name="view_all_error_message">无法加载内容</string>
+    <string name="view_all_empty_title">没有找到内容</string>
+    <string name="view_all_empty_message">试试调整筛选条件</string>
+    <string name="view_all_unknown_initial">?</string>
+    <string name="view_all_sort">排序</string>
+    <string name="view_all_sort_and_filter">排序和筛选</string>
+    <string name="view_all_genres">类型</string>
+    <string name="view_all_clear_filters">清除筛选</string>
+    <string name="view_all_no_genres">暂无类型</string>
+    <string name="view_all_sort_recently_added">最近添加</string>
+    <string name="view_all_sort_name_az">名称（A-Z）</string>
+    <string name="view_all_sort_name_za">名称（Z-A）</string>
+    <string name="view_all_sort_year_newest">年份（最新）</string>
+    <string name="view_all_sort_year_oldest">年份（最早）</string>
+    <string name="view_all_sort_rating_high">评分（高）</string>
+    <string name="view_all_sort_rating_low">评分（低）</string>
+
+    <!-- Favorites -->
+    <string name="favorites_load_failed">无法加载收藏</string>
+    <string name="favorites_unknown_error">未知错误</string>
+    <string name="favorites_empty_title">还没有收藏</string>
+    <string name="favorites_empty_message">在详情页添加电影、剧集或分集到收藏。</string>
+    <string name="favorites_no_supported_types_title">没有找到电影、剧集或分集收藏</string>
+    <string name="favorites_no_supported_types_message">存在收藏，但属于其他媒体类型。</string>
+    <string name="favorites_show_fallback">剧集</string>
+    <string name="favorites_series_fallback">剧集</string>
+    <string name="favorites_episode_code_fallback">分集</string>
+    <string name="favorites_episode_subtitle">%1$s - %2$s</string>
+    <plurals name="favorites_episode_count_short">
+        <item quantity="one">%d 集</item>
+        <item quantity="other">%d 集</item>
+    </plurals>
+
+    <!-- Downloads -->
+    <string name="downloads_empty">没有可用下载</string>
+    <string name="downloads_series_meta">%1$s | %2$s</string>
+    <string name="downloads_episode_title">%1$d. %2$s</string>
+    <string name="downloads_action_pause">暂停</string>
+    <string name="downloads_action_cancel">取消下载</string>
+    <string name="downloads_action_options">下载选项</string>
+    <string name="downloads_action_download">下载</string>
+    <string name="downloads_action_download_series">下载整季/整剧</string>
+    <string name="downloads_queue_options">队列选项</string>
+    <string name="downloads_series_fallback">剧集</string>
+    <string name="downloads_season_number">第 %1$d 季</string>
+    <string name="downloads_season_fallback">季</string>
+    <string name="downloads_status_queuing">排队中...</string>
+    <string name="downloads_status_downloading_short">下载中</string>
+    <string name="downloads_status_downloaded">已下载</string>
+    <string name="downloads_status_downloading_percent">下载中 %1$d%%%2$s</string>
+    <string name="downloads_status_downloading">下载中%1$s</string>
+    <string name="downloads_status_paused">已暂停</string>
+    <string name="downloads_status_queued">已排队</string>
+    <string name="downloads_progress_with_total"> | %1$s / %2$s</string>
+    <string name="downloads_progress_downloaded_only"> | %1$s</string>
+    <string name="downloads_group_downloading">正在下载 %1$d / %2$d</string>
+    <plurals name="downloads_episodes_count">
+        <item quantity="one">%d 集</item>
+        <item quantity="other">%d 集</item>
+    </plurals>
+    <plurals name="downloads_group_queued">
+        <item quantity="one">已排队 %d 集</item>
+        <item quantity="other">已排队 %d 集</item>
+    </plurals>
+    <plurals name="downloads_group_paused">
+        <item quantity="one">已暂停 %d 集</item>
+        <item quantity="other">已暂停 %d 集</item>
+    </plurals>
+
+    <!-- Settings -->
+    <string name="settings_unknown_user">未知用户</string>
+    <string name="settings_unknown_server">未知服务器</string>
+    <string name="settings_preferences">偏好设置</string>
+    <string name="settings_language">语言</string>
+    <string name="settings_language_subtitle">打开系统应用语言设置</string>
+    <string name="settings_interface">界面</string>
+    <string name="settings_visual_options">视觉选项</string>
+    <string name="settings_wifi_only_downloads">仅 Wi‑Fi 下载</string>
+    <string name="settings_enabled">已启用</string>
+    <string name="settings_disabled">已禁用</string>
+    <string name="settings_network">网络</string>
+    <string name="settings_network_subtitle">请求、连接、Socket 超时和 IPv6 阻塞</string>
+    <string name="settings_block_ipv6_connections">阻塞 IPv6 连接</string>
+    <string name="settings_block_ipv6_connections_subtitle">启用后应用内网络请求只使用 IPv4；IPv6 地址将被拦截</string>
+    <string name="settings_seerr">Seerr</string>
+    <string name="settings_seerr_connected_in_app_requests">可用于应用内请求</string>
+    <string name="settings_seerr_connecting">正在连接 Seerr...</string>
+    <string name="settings_seerr_checking">正在检查 Seerr 连接...</string>
+    <string name="settings_seerr_disconnected">未连接</string>
+    <string name="settings_seerr_error">Seerr 需要处理</string>
+    <string name="settings_seerr_status_connected">已连接</string>
+    <string name="settings_seerr_status_checking">检查中</string>
+    <string name="settings_seerr_status_issue">异常</string>
+    <string name="settings_seerr_status_not_connected">未连接</string>
+    <string name="settings_seerr_dialog_title">连接 Seerr</string>
+    <string name="settings_seerr_connect_button">连接到 Seerr</string>
+    <string name="settings_seerr_url_hint">https://your-seerr.example.com</string>
+    <string name="settings_seerr_saved_url">已保存地址：%1$s</string>
+    <string name="settings_seerr_version">服务器版本：%1$s</string>
+    <string name="settings_seerr_refresh_status">刷新状态</string>
+    <string name="settings_seerr_reconnect">重新连接</string>
+    <string name="settings_seerr_disconnect">断开连接</string>
+    <string name="settings_seerr_request_limits">请求限制</string>
+    <string name="settings_seerr_movie_limit">电影</string>
+    <string name="settings_seerr_tv_limit">剧集</string>
+    <string name="settings_seerr_unlimited">无限制</string>
+    <string name="settings_seerr_limit_every_days">%1$s / %2$d天</string>
+    <string name="settings_cache">缓存</string>
+    <string name="settings_cache_subtitle">图片缓存和缓存大小</string>
+    <string name="settings_device_info">设备信息</string>
+    <string name="settings_device_model">设备型号</string>
+    <string name="settings_device_model_value">%1$s %2$s</string>
+    <string name="settings_android_version">Android 版本</string>
+    <string name="settings_android_version_value">Android %1$s（API %2$d）</string>
+    <string name="settings_video_codecs">视频编解码器</string>
+    <string name="settings_account">账号</string>
+    <string name="settings_sign_out_subtitle">退出当前账号</string>
+    <string name="settings_server_label">服务器</string>
+    <string name="settings_switch_server">切换服务器</string>
+    <string name="settings_add_user">添加用户</string>
+    <string name="settings_administrator">管理员</string>
+    <string name="settings_player_settings_subtitle">播放和解码选项</string>
+    <string name="settings_profile_picture">头像</string>
+    <string name="settings_request_timeout">请求超时</string>
+    <string name="settings_connection_timeout">连接超时</string>
+    <string name="settings_socket_timeout">Socket 超时</string>
+    <string name="settings_close">关闭</string>
+    <string name="settings_no_saved_servers">没有保存的服务器。请先登录另一个服务器。</string>
+    <string name="settings_media_server">媒体服务器</string>
+    <string name="settings_change_user">切换用户</string>
+    <string name="settings_active_server">当前服务器</string>
+    <string name="settings_remove_user">移除用户</string>
+    <string name="settings_whos_watching">谁在观看？</string>
+    <string name="settings_no_saved_users_for_server">此服务器没有保存的用户。</string>
+    <string name="settings_unknown_username">未知</string>
+    <string name="settings_watching">观看中</string>
+    <string name="settings_tap_to_switch">点击切换</string>
+    <string name="settings_remove_saved_account">移除保存的账号</string>
+    <string name="settings_remove_saved_account_message">移除 %1$s（%2$s）？</string>
+    <string name="settings_remove">移除</string>
+    <string name="settings_milliseconds">毫秒</string>
+    <string name="settings_allowed_range_ms">允许范围：%1$d-%2$d ms</string>
+    <string name="settings_enter_valid_milliseconds">请输入有效的毫秒值。</string>
+    <string name="settings_apply">应用</string>
+    <string name="settings_unavailable">不可用</string>
+    <string name="settings_add_server">添加服务器</string>
+    <string name="settings_more_options">更多选项</string>
+    <string name="server_management_refresh_all">刷新所有服务器状态</string>
+    <string name="server_management_primary_line">主线路</string>
+    <string name="server_management_resource_counts">电影 %1$s · 电视 %2$s</string>
+    <string name="server_management_remark_multiple">%1$s · %2$d 个账号</string>
+    <string name="server_management_recent_never">未播放</string>
+    <string name="server_management_watching_time">观看中 %1$s</string>
+    <string name="server_management_action_lines">服务器线路（添加/编辑备用）</string>
+    <string name="server_management_action_remark">修改备注</string>
+    <string name="server_management_action_edit_server">编辑服务器</string>
+    <string name="server_management_action_delete">删除</string>
+    <string name="server_management_remark_title">修改服务器备注</string>
+    <string name="server_management_remark_hint">备注名称</string>
+    <string name="server_management_options_title">服务器选项</string>
+    <string name="server_management_options_message">选择要执行的服务器批量操作。</string>
+    <string name="settings_keep_accounts">一键保号</string>
+    <string name="settings_keep_accounts_title">选择要保号的服务器</string>
+    <string name="settings_keep_accounts_message">确认后，将同时对勾选服务器发起真实播放请求 1 分钟；成功后后台清理继续观看，失败不会计为成功。下次默认记住本次勾选。</string>
+    <string name="settings_keep_accounts_running">正在并发发起真实播放请求 1 分钟…</string>
+    <string name="settings_auto">自动</string>
+    <string name="settings_check_update">检查更新</string>
+    <string name="settings_check_update_subtitle">检查应用最新版本</string>
+    <string name="update_available_title">发现新版本</string>
+    <string name="update_available_message">发现新版本 %1$s，是否下载更新？</string>
+    <string name="update_changelog_prefix">更新日志：%1$s</string>
+    <string name="update_later">稍后</string>
+    <string name="update_now">更新</string>
+    <string name="update_cancel">取消</string>
+    <string name="update_download">下载</string>
+    <string name="update_install">安装</string>
+    <string name="update_cached_ready">安装包已准备好，点击安装继续。</string>
+    <string name="update_downloading">下载中...</string>
+    <string name="update_download_progress">%1$d%% · %2$s / %3$s</string>
+    <string name="update_download_failed_message">下载失败：%1$s</string>
+    <string name="update_no_update_message">当前已是最新版本：%1$s（%2$d）</string>
+    <string name="update_check_failed_message">检查更新失败：%1$s</string>
+    <string name="cd_about_button">Telegram 频道</string>
+    <plurals name="settings_saved_users_count">
+        <item quantity="one">%d 个用户</item>
+        <item quantity="other">%d 个用户</item>
+    </plurals>
+    <plurals name="settings_seerr_requests_count">
+        <item quantity="one">%d 个请求</item>
+        <item quantity="other">%d 个请求</item>
+    </plurals>
+
+    <!-- About -->
+    <string name="about_title">关于</string>
+    <string name="about_version_chip">版本 %1$s</string>
+    <string name="about_section_project">法律</string>
+    <string name="about_section_connect">连接</string>
+    <string name="about_privacy_policy">隐私政策</string>
+    <string name="about_privacy_policy_subtitle">了解 Grmemby 如何处理播放数据和隐私</string>
+    <string name="about_open_source_license">许可证</string>
+    <string name="about_open_source_license_subtitle">GNU 通用公共许可证 v3.0</string>
+    <string name="about_source_code">源代码</string>
+    <string name="about_rate_app">在 Google Play 评分</string>
+    <string name="about_rate_app_subtitle">留下评分或评价，帮助更多人发现 Grmemby</string>
+    <string name="about_contact_developer">联系开发者</string>
+    <string name="about_contact_developer_subtitle">通过电子邮件发送反馈、错误报告或隐私问题</string>
+    <string name="about_feedback_subject">Grmemby 反馈</string>
+    <string name="about_buy_me_a_coffee">请我喝咖啡</string>
+    <string name="about_patreon">Patreon</string>
+
+    <!-- Interface Settings -->
+    <string name="interface_feature_carousel">精选轮播</string>
+    <string name="interface_feature_carousel_subtitle">在首页显示精选内容轮播。</string>
+    <string name="interface_continue_watching">继续观看</string>
+    <string name="interface_continue_watching_subtitle">在首页显示继续观看区域。</string>
+    <string name="interface_next_up">即将播放</string>
+    <string name="interface_next_up_subtitle">在首页显示即将播放区域。</string>
+    <string name="interface_use_my_media_tab">使用我的媒体标签</string>
+    <string name="interface_use_my_media_tab_subtitle">用经典媒体库网格替换“为你推荐”标签。</string>
+    <string name="interface_emby_poster_overlays">Emby 海报覆盖层</string>
+    <string name="interface_emby_poster_overlays_subtitle">禁用 Emby 海报覆盖层。</string>
+
+    <!-- Cache Settings -->
+    <string name="cache_settings_cache_images">缓存图片</string>
+    <string name="cache_settings_cache_images_summary">保留图片缓存以加快加载并提升滚动流畅度。</string>
+    <string name="cache_settings_cache_next_episode">缓存下一集</string>
+    <string name="cache_settings_cache_next_episode_summary">观看时预加载下一集的一部分到播放器缓存。</string>
+    <string name="cache_settings_cache_size">缓存大小</string>
+    <string name="cache_settings_cache_size_value_mb">%1$d MB</string>
+    <string name="cache_settings_cache_size_dialog_title">缓存大小（MB）</string>
+    <string name="cache_settings_cache_size_input_label">兆字节（留空 = 自动）</string>
+    <string name="cache_settings_allowed_range_mb">允许范围：%1$d-%2$d MB</string>
+    <string name="cache_settings_auto_hint">输入 0 或留空表示自动。</string>
+
+    <!-- Cast -->
+    <string name="cast_close_picker">关闭投屏选择器</string>
+    <string name="cast_connected_device">已连接设备</string>
+    <string name="cast_connected">已连接</string>
+    <string name="cast_disconnect">断开连接</string>
+    <string name="cast_searching">正在搜索设备...</string>
+    <string name="cast_same_wifi_hint">请确保电视/Chromecast 与手机在同一 Wi‑Fi。</string>
+    <string name="cast_unnamed_device">未命名设备</string>
+    <string name="cast_connecting">连接中...</string>
+    <string name="cast_tap_to_connect">点击连接</string>
+
+    <!-- Detail -->
+    <string name="detail_cast_and_crew">演员和工作人员</string>
+    <string name="detail_similar_items_title">更多类似内容</string>
+    <string name="detail_similar_item_unknown">未知</string>
+    <string name="detail_person_loading">加载中...</string>
+    <string name="detail_person_unknown">未知人物</string>
+    <string name="detail_person_load_failed">暂时无法加载此人物。</string>
+    <string name="detail_person_about">简介</string>
+    <string name="detail_person_no_related_titles">暂无相关作品。</string>
+    <string name="detail_person_read_more">展开</string>
+    <string name="detail_person_read_less">收起</string>
+    <string name="watch_party_room">一起看房间</string>
+</resources>

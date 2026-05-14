@@ -1,0 +1,52 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm'
+    id 'org.jetbrains.kotlin.plugin.serialization'
+    id 'application'
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+application {
+    mainClass = 'com.grmemby.winplayer.WinPlayerAppKt'
+    applicationName = 'Grmemby'
+}
+
+dependencies {
+    implementation project(':data')
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.10.2'
+    implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0'
+    implementation 'io.ktor:ktor-client-core:3.4.3'
+    implementation 'io.ktor:ktor-client-okhttp:3.4.3'
+    implementation 'io.ktor:ktor-client-content-negotiation:3.4.3'
+    implementation 'io.ktor:ktor-serialization-kotlinx-json:3.4.3'
+
+    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5:2.3.21'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': application.mainClass.get()
+    }
+}
+
+distributions {
+    main {
+        contents {
+            from('README.md')
+        }
+    }
+}

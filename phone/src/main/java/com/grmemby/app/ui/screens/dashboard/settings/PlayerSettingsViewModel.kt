@@ -1,0 +1,357 @@
+package com.grmemby.app.ui.screens.dashboard.settings
+
+import android.content.Context
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.grmemby.data.model.AudioTranscodeMode
+import com.grmemby.data.repository.MediaRepositoryProvider
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import com.grmemby.player.preferences.PlayerPreferences
+
+data class PlayerSettingsUiState(
+    val playerEngine: String = PlayerPreferences.DEFAULT_PLAYER_ENGINE,
+    val mpvHardwareDecoding: String = PlayerPreferences.DEFAULT_MPV_HARDWARE_DECODING,
+    val mpvVideoOutput: String = PlayerPreferences.DEFAULT_MPV_VIDEO_OUTPUT,
+    val mpvAudioOutput: String = PlayerPreferences.DEFAULT_MPV_AUDIO_OUTPUT,
+
+    // Hardware Acceleration
+    val hardwareDecodingEnabled: Boolean = true,
+    val asyncMediaCodecEnabled: Boolean = false,
+
+    // Video
+    val decoderPriority: String = "Auto",
+    val streamingQuality: String = PlayerPreferences.DEFAULT_STREAMING_QUALITY,
+    val audioTranscodeMode: String = AudioTranscodeMode.AUTO.displayName,
+    val isVideoTranscodingAllowed: Boolean = false,
+    val isAudioTranscodingAllowed: Boolean = false,
+    val playerGesturesEnabled: Boolean = true,
+    val volumeBrightnessGesturesEnabled: Boolean = true,
+    val useDeviceVolumeInPlayer: Boolean = PlayerPreferences.DEFAULT_USE_DEVICE_VOLUME_IN_PLAYER,
+    val useDeviceBrightnessInPlayer: Boolean = PlayerPreferences.DEFAULT_USE_DEVICE_BRIGHTNESS_IN_PLAYER,
+    val progressSeekGestureEnabled: Boolean = true,
+    val zoomGestureEnabled: Boolean = true,
+    val longPressSpeedBoostEnabled: Boolean = PlayerPreferences.DEFAULT_LONG_PRESS_SPEED_BOOST_ENABLED,
+    val longPressSpeedBoostRate: Int = PlayerPreferences.DEFAULT_LONG_PRESS_SPEED_BOOST_RATE,
+    val startMaximized: Boolean = false,
+    val cacheNextEpisodeEnabled: Boolean = false,
+    val playerDiskCacheEnabled: Boolean = PlayerPreferences.DEFAULT_PLAYER_DISK_CACHE_ENABLED,
+    val playerCacheSizeMb: Int = PlayerPreferences.DEFAULT_PLAYER_CACHE_SIZE_MB,
+    val playerCacheTimeSeconds: Int = PlayerPreferences.DEFAULT_PLAYER_CACHE_TIME_SECONDS,
+    val seekBackwardIntervalSeconds: Int = PlayerPreferences.DEFAULT_SEEK_INTERVAL_SECONDS,
+    val seekForwardIntervalSeconds: Int = PlayerPreferences.DEFAULT_SEEK_INTERVAL_SECONDS,
+    val skipIntroEnabled: Boolean = PlayerPreferences.DEFAULT_SKIP_INTRO_ENABLED,
+    val chapterMarkersEnabled: Boolean = PlayerPreferences.DEFAULT_CHAPTER_MARKERS_ENABLED,
+
+    // Danmaku
+    val danmakuEnabled: Boolean = PlayerPreferences.DEFAULT_DANMAKU_ENABLED,
+    val danmakuFilterWords: String = PlayerPreferences.DEFAULT_DANMAKU_FILTER_WORDS,
+    val danmakuMatchMode: String = PlayerPreferences.DEFAULT_DANMAKU_MATCH_MODE,
+    val danmakuApiEndpoints: List<PlayerPreferences.DanmakuApiEndpoint> = emptyList(),
+
+    // Performance
+    val batteryOptimizationEnabled: Boolean = false,
+
+    // Loading states
+    val isLoading: Boolean = false,
+    val error: String? = null
+)
+
+class PlayerSettingsViewModel(private val context: Context) : ViewModel() {
+
+    private val playerPreferences = PlayerPreferences(context)
+    private val mediaRepository = MediaRepositoryProvider.getInstance(context)
+    private val initialPersistedSnapshot = mediaRepository.getPersistedHomeSnapshot()
+
+    private val _uiState = MutableStateFlow(
+        PlayerSettingsUiState(
+            isVideoTranscodingAllowed = initialPersistedSnapshot?.isVideoTranscodingAllowed ?: false,
+            isAudioTranscodingAllowed = initialPersistedSnapshot?.isAudioTranscodingAllowed ?: false
+        )
+    )
+    val uiState: StateFlow<PlayerSettingsUiState> = _uiState.asStateFlow()
+
+    init {
+        loadSettings()
+        userTranscodingPolicy()
+    }
+
+    private fun updateGestureState() {
+        _uiState.value = _uiState.value.copy(
+            playerGesturesEnabled = playerPreferences.arePlayerGesturesEnabled(),
+            volumeBrightnessGesturesEnabled = playerPreferences.isVolumeBrightnessGesturesEnabled(),
+            useDeviceVolumeInPlayer = playerPreferences.isUseDeviceVolumeInPlayerEnabled(),
+            useDeviceBrightnessInPlayer = playerPreferences.isUseDeviceBrightnessInPlayerEnabled(),
+            progressSeekGestureEnabled = playerPreferences.isProgressSeekGestureEnabled(),
+            zoomGestureEnabled = playerPreferences.isZoomGestureEnabled(),
+            longPressSpeedBoostEnabled = playerPreferences.isLongPressSpeedBoostEnabled(),
+            longPressSpeedBoostRate = playerPreferences.getLongPressSpeedBoostRate(),
+            startMaximized = playerPreferences.isStartMaximizedEnabled()
+        )
+    }
+
+    private fun loadSettings() {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                hardwareDecodingEnabled = playerPreferences.isHardwareAccelerationEnabled(),
+                playerEngine = playerPreferences.getPlayerEngine(),
+                mpvHardwareDecoding = playerPreferences.getMpvHardwareDecoding(),
+                mpvVideoOutput = playerPreferences.getMpvVideoOutput(),
+                mpvAudioOutput = playerPreferences.getMpvAudioOutput(),
+                asyncMediaCodecEnabled = playerPreferences.isAsyncMediaCodecEnabled(),
+                decoderPriority = playerPreferences.getDecoderPriority(),
+                streamingQuality = playerPreferences.getStreamingQuality(),
+                audioTranscodeMode = playerPreferences.getAudioTranscodeMode().displayName,
+                playerGesturesEnabled = playerPreferences.arePlayerGesturesEnabled(),
+                volumeBrightnessGesturesEnabled = playerPreferences.isVolumeBrightnessGesturesEnabled(),
+                useDeviceVolumeInPlayer = playerPreferences.isUseDeviceVolumeInPlayerEnabled(),
+                useDeviceBrightnessInPlayer = playerPreferences.isUseDeviceBrightnessInPlayerEnabled(),
+                progressSeekGestureEnabled = playerPreferences.isProgressSeekGestureEnabled(),
+                zoomGestureEnabled = playerPreferences.isZoomGestureEnabled(),
+                longPressSpeedBoostEnabled = playerPreferences.isLongPressSpeedBoostEnabled(),
+                longPressSpeedBoostRate = playerPreferences.getLongPressSpeedBoostRate(),
+                startMaximized = playerPreferences.isStartMaximizedEnabled(),
+                cacheNextEpisodeEnabled = playerPreferences.isCacheNextEpisodeEnabled(),
+                playerDiskCacheEnabled = playerPreferences.isPlayerDiskCacheEnabled(),
+                playerCacheSizeMb = playerPreferences.getPlayerCacheSizeMb(),
+                playerCacheTimeSeconds = playerPreferences.getPlayerCacheTimeSeconds(),
+                seekBackwardIntervalSeconds = playerPreferences.getSeekBackwardIntervalSeconds(),
+                seekForwardIntervalSeconds = playerPreferences.getSeekForwardIntervalSeconds(),
+                skipIntroEnabled = playerPreferences.isSkipIntroEnabled(),
+                chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled(),
+                danmakuEnabled = playerPreferences.isDanmakuEnabled(),
+                danmakuFilterWords = playerPreferences.getDanmakuFilterWords(),
+                danmakuMatchMode = playerPreferences.getDanmakuMatchMode(),
+                danmakuApiEndpoints = playerPreferences.getDanmakuApiEndpoints(),
+                batteryOptimizationEnabled = playerPreferences.isBatteryOptimizationEnabled()
+            )
+        }
+    }
+
+    // Setting update functions
+    fun setPlayerEngine(engine: String) {
+        playerPreferences.setPlayerEngine(engine)
+        _uiState.value = _uiState.value.copy(playerEngine = playerPreferences.getPlayerEngine())
+    }
+
+    fun setMpvHardwareDecoding(hardwareDecoding: String) {
+        playerPreferences.setMpvHardwareDecoding(hardwareDecoding)
+        _uiState.value = _uiState.value.copy(
+            mpvHardwareDecoding = playerPreferences.getMpvHardwareDecoding()
+        )
+    }
+
+    fun setMpvVideoOutput(videoOutput: String) {
+        playerPreferences.setMpvVideoOutput(videoOutput)
+        _uiState.value = _uiState.value.copy(mpvVideoOutput = playerPreferences.getMpvVideoOutput())
+    }
+
+    fun setMpvAudioOutput(audioOutput: String) {
+        playerPreferences.setMpvAudioOutput(audioOutput)
+        _uiState.value = _uiState.value.copy(mpvAudioOutput = playerPreferences.getMpvAudioOutput())
+    }
+
+    fun setHardwareDecodingEnabled(enabled: Boolean) {
+        playerPreferences.setHardwareAccelerationEnabled(enabled)
+        _uiState.value = _uiState.value.copy(hardwareDecodingEnabled = enabled)
+        if (!enabled) {
+            setAsyncMediaCodecEnabled(false)
+        }
+    }
+
+    fun setAsyncMediaCodecEnabled(enabled: Boolean) {
+        playerPreferences.setAsyncMediaCodecEnabled(enabled)
+        _uiState.value = _uiState.value.copy(asyncMediaCodecEnabled = enabled)
+    }
+
+    fun setDecoderPriority(priority: String) {
+        playerPreferences.setDecoderPriority(priority)
+        _uiState.value = _uiState.value.copy(decoderPriority = priority)
+    }
+
+    private fun userTranscodingPolicy() {
+        viewModelScope.launch {
+            val persistedSnapshot = mediaRepository.loadPersistedHomeSnapshot()
+            val persistedVideoAllowed =
+                persistedSnapshot?.isVideoTranscodingAllowed
+                    ?: initialPersistedSnapshot?.isVideoTranscodingAllowed
+            val persistedAudioAllowed =
+                persistedSnapshot?.isAudioTranscodingAllowed
+                    ?: initialPersistedSnapshot?.isAudioTranscodingAllowed
+
+            if (persistedVideoAllowed != null || persistedAudioAllowed != null) {
+                _uiState.value = _uiState.value.copy(
+                    isVideoTranscodingAllowed = persistedVideoAllowed
+                        ?: _uiState.value.isVideoTranscodingAllowed,
+                    isAudioTranscodingAllowed = persistedAudioAllowed
+                        ?: _uiState.value.isAudioTranscodingAllowed
+                )
+                if (persistedVideoAllowed != null && persistedAudioAllowed != null) {
+                    return@launch
+                }
+            }
+
+            val user = mediaRepository.getCurrentUser().getOrNull()
+            val isVideoTranscodingEnabled = user?.policy?.enableVideoPlaybackTranscoding
+                ?: user?.let { true }
+                ?: persistedVideoAllowed
+                ?: _uiState.value.isVideoTranscodingAllowed
+            val isAudioTranscodingEnabled = user?.policy?.enableAudioPlaybackTranscoding
+                ?: user?.let { true }
+                ?: persistedAudioAllowed
+                ?: _uiState.value.isAudioTranscodingAllowed
+
+            _uiState.value = _uiState.value.copy(
+                isVideoTranscodingAllowed = isVideoTranscodingEnabled,
+                isAudioTranscodingAllowed = isAudioTranscodingEnabled
+            )
+            mediaRepository.persistHomeSnapshot(
+                isVideoTranscodingAllowed = isVideoTranscodingEnabled,
+                isAudioTranscodingAllowed = isAudioTranscodingEnabled
+            )
+        }
+    }
+
+    fun setStreamingQuality(quality: String) {
+        playerPreferences.setStreamingQuality(quality)
+        _uiState.value = _uiState.value.copy(streamingQuality = playerPreferences.getStreamingQuality())
+    }
+
+    fun setAudioTranscodeMode(modeDisplayName: String) {
+        val mode = AudioTranscodeMode.fromDisplayName(modeDisplayName)
+        playerPreferences.setAudioTranscodeMode(mode)
+        _uiState.value = _uiState.value.copy(audioTranscodeMode = mode.displayName)
+    }
+
+    fun setPlayerGesturesEnabled(enabled: Boolean) {
+        playerPreferences.setPlayerGesturesEnabled(enabled)
+        updateGestureState()
+    }
+
+    fun setVolumeBrightnessGesturesEnabled(enabled: Boolean) {
+        playerPreferences.setVolumeBrightnessGesturesEnabled(enabled)
+        updateGestureState()
+    }
+
+    fun setUseDeviceVolumeInPlayer(enabled: Boolean) {
+        playerPreferences.setUseDeviceVolumeInPlayerEnabled(enabled)
+        updateGestureState()
+    }
+
+    fun setUseDeviceBrightnessInPlayer(enabled: Boolean) {
+        playerPreferences.setUseDeviceBrightnessInPlayerEnabled(enabled)
+        updateGestureState()
+    }
+
+    fun setProgressSeekGestureEnabled(enabled: Boolean) {
+        playerPreferences.setProgressSeekGestureEnabled(enabled)
+        updateGestureState()
+    }
+
+    fun setZoomGestureEnabled(enabled: Boolean) {
+        playerPreferences.setZoomGestureEnabled(enabled)
+        updateGestureState()
+    }
+
+    fun setLongPressSpeedBoostEnabled(enabled: Boolean) {
+        playerPreferences.setLongPressSpeedBoostEnabled(enabled)
+        updateGestureState()
+    }
+
+    fun setLongPressSpeedBoostRate(rate: Int) {
+        playerPreferences.setLongPressSpeedBoostRate(rate)
+        updateGestureState()
+    }
+
+    fun setStartMaximized(enabled: Boolean) {
+        playerPreferences.setStartMaximizedEnabled(enabled)
+        updateGestureState()
+    }
+
+    fun setCacheNextEpisodeEnabled(enabled: Boolean) {
+        playerPreferences.setCacheNextEpisodeEnabled(enabled)
+        _uiState.value = _uiState.value.copy(
+            cacheNextEpisodeEnabled = playerPreferences.isCacheNextEpisodeEnabled()
+        )
+    }
+
+    fun setPlayerDiskCacheEnabled(enabled: Boolean) {
+        playerPreferences.setPlayerDiskCacheEnabled(enabled)
+        _uiState.value = _uiState.value.copy(
+            playerDiskCacheEnabled = playerPreferences.isPlayerDiskCacheEnabled()
+        )
+    }
+
+    fun setPlayerCacheSizeMb(sizeMb: Int) {
+        playerPreferences.setPlayerCacheSizeMb(sizeMb)
+        _uiState.value = _uiState.value.copy(
+            playerCacheSizeMb = playerPreferences.getPlayerCacheSizeMb()
+        )
+    }
+
+    fun setPlayerCacheTimeSeconds(seconds: Int) {
+        playerPreferences.setPlayerCacheTimeSeconds(seconds)
+        _uiState.value = _uiState.value.copy(
+            playerCacheTimeSeconds = playerPreferences.getPlayerCacheTimeSeconds()
+        )
+    }
+
+    fun setSeekBackwardIntervalSeconds(seconds: Int) {
+        playerPreferences.setSeekBackwardIntervalSeconds(seconds)
+        _uiState.value = _uiState.value.copy(
+            seekBackwardIntervalSeconds = playerPreferences.getSeekBackwardIntervalSeconds()
+        )
+    }
+
+    fun setSeekForwardIntervalSeconds(seconds: Int) {
+        playerPreferences.setSeekForwardIntervalSeconds(seconds)
+        _uiState.value = _uiState.value.copy(
+            seekForwardIntervalSeconds = playerPreferences.getSeekForwardIntervalSeconds()
+        )
+    }
+
+    fun setSkipIntroEnabled(enabled: Boolean) {
+        playerPreferences.setSkipIntroEnabled(enabled)
+        _uiState.value = _uiState.value.copy(
+            skipIntroEnabled = playerPreferences.isSkipIntroEnabled()
+        )
+    }
+
+    fun setChapterMarkersEnabled(enabled: Boolean) {
+        playerPreferences.setChapterMarkersEnabled(enabled)
+        _uiState.value = _uiState.value.copy(
+            chapterMarkersEnabled = playerPreferences.areChapterMarkersEnabled()
+        )
+    }
+
+    fun setDanmakuEnabled(enabled: Boolean) {
+        playerPreferences.setDanmakuEnabled(enabled)
+        _uiState.value = _uiState.value.copy(danmakuEnabled = playerPreferences.isDanmakuEnabled())
+    }
+
+    fun setDanmakuFilterWords(words: String) {
+        playerPreferences.setDanmakuFilterWords(words)
+        _uiState.value = _uiState.value.copy(danmakuFilterWords = playerPreferences.getDanmakuFilterWords())
+    }
+
+    fun setDanmakuMatchMode(mode: String) {
+        playerPreferences.setDanmakuMatchMode(mode)
+        _uiState.value = _uiState.value.copy(danmakuMatchMode = playerPreferences.getDanmakuMatchMode())
+    }
+
+    fun setDanmakuApiEndpoints(endpoints: List<PlayerPreferences.DanmakuApiEndpoint>) {
+        playerPreferences.setDanmakuApiEndpoints(endpoints)
+        _uiState.value = _uiState.value.copy(danmakuApiEndpoints = playerPreferences.getDanmakuApiEndpoints())
+    }
+
+    fun setBatteryOptimizationEnabled(enabled: Boolean) {
+        playerPreferences.setBatteryOptimizationEnabled(enabled)
+        _uiState.value = _uiState.value.copy(batteryOptimizationEnabled = enabled)
+    }
+
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(error = null)
+    }
+}
