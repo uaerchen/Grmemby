@@ -17,8 +17,6 @@ Grmemby 是一个开源的 Android 媒体客户端，适用于 Jellyfin/Emby 兼
   <img src="docs/screenshots/showcase-player.jpg" alt="Grmemby 播放器" width="72%" />
 </p>
 
-> 仅将服务器卡片中的 `uuoevery` 用户名替换为演示标签。
-
 ## 功能特性
 
 - 支持 Jellyfin/Emby 兼容服务器登录与切换

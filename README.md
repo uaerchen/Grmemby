@@ -17,8 +17,6 @@ This project is a GPLv3 fork/rework based on JellyCine, with Grmemby branding an
   <img src="docs/screenshots/showcase-player.jpg" alt="Grmemby player screen" width="72%" />
 </p>
 
-> Only the `uuoevery` username on server cards has been replaced with a demo label.
-
 ## Features
 
 - Jellyfin/Emby-compatible server login and switching
