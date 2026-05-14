@@ -17,8 +17,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 private const val VIEW_ALL_IMAGE_FIELDS =
-    "ImageTags,PrimaryImageAspectRatio,BackdropImageTags,ParentPrimaryImageItemId," +
-        "ParentPrimaryImageTag,SeriesPrimaryImageTag"
+    "ImageTags,PrimaryImageAspectRatio,BackdropImageTags,ParentBackdropImageTags," +
+        "ParentPrimaryImageItemId,ParentPrimaryImageTag,SeriesPrimaryImageTag," +
+        "AlbumPrimaryImageTag,ChannelPrimaryImageTag,ParentBackdropItemId," +
+        "ParentThumbItemId,ParentThumbImageTag,SeriesThumbImageTag"
 private const val VIEW_ALL_MOVIE_FIELDS =
     "ChildCount,RecursiveItemCount,EpisodeCount,Genres,CommunityRating,CriticRating," +
         "ProductionYear,Overview,$VIEW_ALL_IMAGE_FIELDS"

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.animation.*
 import coil3.compose.AsyncImage
 import coil3.request.*
+import coil3.size.Precision
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -36,15 +37,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.annotation.StringRes
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.grmemby.app.R
 import com.grmemby.app.ui.components.common.containerWidthDp
 import com.grmemby.app.ui.components.common.isTabletLayout
+import com.grmemby.app.ui.screens.dashboard.DashboardPalette
 import com.grmemby.shared.ui.components.common.FilterChip as MediaFilterChip
 import com.grmemby.shared.ui.components.common.PosterCountBadge
 import com.grmemby.shared.util.image.DisableEmbyPosterEnhancers
+import com.grmemby.shared.util.image.imageTagFor
 
 import com.grmemby.data.repository.MediaRepository
 import com.grmemby.data.repository.MediaRepositoryProvider
@@ -82,6 +87,7 @@ fun ViewAllScreen(
     val horizontalSpacing = if (isTablet) 16.dp else 12.dp
 
     val mediaRepository = remember { MediaRepositoryProvider.getInstance(context) }
+    val inheritedSurfaceColor by DashboardPalette.surfaceColor.collectAsStateWithLifecycle()
 
     var showSortSheet by remember { mutableStateOf(false) }
     val gridState = rememberLazyGridState()
@@ -177,7 +183,7 @@ fun ViewAllScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(inheritedSurfaceColor)
     ) {
         Column(
             modifier = Modifier.fillMaxSize()
@@ -186,7 +192,7 @@ fun ViewAllScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding(),
-                color = Color.Black
+                color = inheritedSurfaceColor
             ) {
                 Row(
                     modifier = Modifier
@@ -502,6 +508,61 @@ private fun RecentlyAddedCard(
     }
 }
 
+private data class ViewAllPosterImageRequest(
+    val itemId: String,
+    val imageType: String,
+    val imageTag: String?
+)
+
+private fun BaseItemDto.viewAllPosterImageRequests(): List<ViewAllPosterImageRequest> {
+    val requests = mutableListOf<ViewAllPosterImageRequest>()
+    val isEpisode = type.equals("Episode", ignoreCase = true)
+
+    fun addRequest(targetItemId: String?, imageType: String, urlImageType: String = imageType) {
+        val safeItemId = targetItemId?.takeIf { it.isNotBlank() } ?: return
+        val tag = imageTagFor(imageType = imageType, targetItemId = safeItemId)
+        requests += ViewAllPosterImageRequest(
+            itemId = safeItemId,
+            imageType = urlImageType,
+            imageTag = tag
+        )
+        if (!tag.isNullOrBlank()) {
+            requests += ViewAllPosterImageRequest(
+                itemId = safeItemId,
+                imageType = urlImageType,
+                imageTag = null
+            )
+        }
+    }
+
+    val primaryIds = if (isEpisode) {
+        listOf(parentPrimaryImageItemId, seriesId, id)
+    } else {
+        listOf(id, parentPrimaryImageItemId, seriesId)
+    }
+    primaryIds.forEach { targetItemId -> addRequest(targetItemId, imageType = "Primary") }
+
+    val thumbIds = if (isEpisode) {
+        listOf(parentThumbItemId, seriesId, parentPrimaryImageItemId, id)
+    } else {
+        listOf(id, parentThumbItemId, seriesId, parentPrimaryImageItemId)
+    }
+    thumbIds.forEach { targetItemId -> addRequest(targetItemId, imageType = "Thumb") }
+
+    val backdropIds = if (isEpisode) {
+        listOf(parentBackdropItemId, seriesId, parentPrimaryImageItemId, id)
+    } else {
+        listOf(id, parentBackdropItemId, seriesId, parentPrimaryImageItemId)
+    }
+    backdropIds.forEach { targetItemId ->
+        addRequest(targetItemId, imageType = "Backdrop", urlImageType = "Backdrop/0")
+    }
+
+    return requests.distinctBy { request ->
+        "${request.itemId}|${request.imageType}|${request.imageTag.orEmpty()}"
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PosterCard(
@@ -512,31 +573,46 @@ private fun PosterCard(
 ) {
     val context = LocalContext.current
     val disablePosterEnhancers = DisableEmbyPosterEnhancers()
-    var imageUrl by remember(item.id) { mutableStateOf<String?>(null) }
-    var isLoading by remember(item.id) { mutableStateOf(true) }
+    val imageRequests = remember(item) { item.viewAllPosterImageRequests() }
+    var imageRequestIndex by remember(item.id, imageRequests) { mutableStateOf(0) }
+    val currentImageRequest = imageRequests.getOrNull(imageRequestIndex)
+    var imageUrl by remember(item.id, currentImageRequest, disablePosterEnhancers) { mutableStateOf<String?>(null) }
+    var isLoading by remember(item.id, currentImageRequest, disablePosterEnhancers) {
+        mutableStateOf(currentImageRequest != null)
+    }
+    var hasImageError by remember(item.id, currentImageRequest, disablePosterEnhancers) {
+        mutableStateOf(currentImageRequest == null)
+    }
 
-    LaunchedEffect(item.id, disablePosterEnhancers) {
-        val itemId = item.id
-        if (itemId != null) {
-            try {
-                val actualItemId = if (item.type == "Episode" && !item.seriesId.isNullOrBlank()) {
-                    item.seriesId ?: itemId
-                } else {
-                    itemId
-                }
+    LaunchedEffect(currentImageRequest, disablePosterEnhancers) {
+        val request = currentImageRequest
+        if (request == null) {
+            imageUrl = null
+            isLoading = false
+            hasImageError = true
+            return@LaunchedEffect
+        }
 
-                val url = mediaRepository.getImageUrl(
-                    itemId = actualItemId,
-                    width = 300,
-                    height = 450,
-                    quality = 90,
-                    enableImageEnhancers = !disablePosterEnhancers
-                ).first()
-                imageUrl = url
+        isLoading = true
+        hasImageError = false
+        imageUrl = withContext(Dispatchers.IO) {
+            mediaRepository.getImageUrlString(
+                itemId = request.itemId,
+                imageType = request.imageType,
+                width = 300,
+                height = 450,
+                quality = 90,
+                enableImageEnhancers = !disablePosterEnhancers,
+                imageTag = request.imageTag
+            )
+        }
+
+        if (imageUrl.isNullOrBlank()) {
+            if (imageRequestIndex < imageRequests.lastIndex) {
+                imageRequestIndex += 1
+            } else {
                 isLoading = false
-            } catch (e: Exception) {
-                imageUrl = null
-                isLoading = false
+                hasImageError = true
             }
         }
     }
@@ -547,6 +623,7 @@ private fun PosterCard(
     } else {
         item.name ?: stringResource(R.string.search_result_unknown_title)
     }
+    val posterShape = RoundedCornerShape(if (isTablet) 18.dp else 16.dp)
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -556,7 +633,7 @@ private fun PosterCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f),
-            shape = RoundedCornerShape(if (isTablet) 18.dp else 16.dp),
+            shape = posterShape,
             colors = CardDefaults.cardColors(
                 containerColor = Color.Transparent
             ),
@@ -564,51 +641,69 @@ private fun PosterCard(
             onClick = onClick
         ) {
             Box(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFF1A1A2E),
+                                Color(0xFF16213E)
+                            )
+                        ),
+                        shape = posterShape
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(imageUrl)
-                        .crossfade(false)
-                        .build(),
-                    contentDescription = displayName,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                    placeholder = null,
-                    error = null,
-                    fallback = null
-                )
-
-                if (imageUrl == null) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                brush = Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0xFF1A1A2E),
-                                        Color(0xFF16213E)
-                                    )
-                                ),
-                                shape = RoundedCornerShape(if (isTablet) 18.dp else 16.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                color = Color.White.copy(alpha = 0.6f),
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text(
-                                text = displayName.take(2).uppercase(),
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = if (isTablet) 22.sp else 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                if (!imageUrl.isNullOrBlank() && !hasImageError) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(imageUrl)
+                            .memoryCachePolicy(CachePolicy.ENABLED)
+                            .diskCachePolicy(CachePolicy.ENABLED)
+                            .networkCachePolicy(CachePolicy.ENABLED)
+                            .precision(Precision.INEXACT)
+                            .allowHardware(true)
+                            .allowRgb565(false)
+                            .crossfade(false)
+                            .build(),
+                        contentDescription = displayName,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        placeholder = null,
+                        error = null,
+                        fallback = null,
+                        onLoading = {
+                            isLoading = true
+                        },
+                        onSuccess = {
+                            isLoading = false
+                            hasImageError = false
+                        },
+                        onError = {
+                            if (imageRequestIndex < imageRequests.lastIndex) {
+                                imageUrl = null
+                                imageRequestIndex += 1
+                            } else {
+                                isLoading = false
+                                hasImageError = true
+                            }
                         }
-                    }
+                    )
+                }
+
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White.copy(alpha = 0.6f),
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else if (hasImageError || imageUrl.isNullOrBlank()) {
+                    Text(
+                        text = displayName.take(2).uppercase(),
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = if (isTablet) 22.sp else 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
                 // Episode/item count badge
@@ -632,8 +727,6 @@ private fun PosterCard(
                             .padding(top = 8.dp, end = 4.dp)
                     )
                 }
-
-
             }
         }
 
