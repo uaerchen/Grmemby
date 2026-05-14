@@ -9,12 +9,15 @@ This project is a GPLv3 fork/rework based on JellyCine, with Grmemby branding an
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/showcase-home.jpg" alt="Grmemby home screen" width="30%" />
-  <img src="docs/screenshots/showcase-player.jpg" alt="Grmemby player screen" width="30%" />
-  <img src="docs/screenshots/showcase-servers.jpg" alt="Grmemby server management screen" width="30%" />
+  <img src="docs/screenshots/showcase-home.jpg" alt="Grmemby home screen" width="32%" />
+  <img src="docs/screenshots/showcase-servers.jpg" alt="Grmemby server management screen" width="32%" />
 </p>
 
-> The screenshots above use redacted demo labels for server names, usernames, room codes, and other private UI data.
+<p align="center">
+  <img src="docs/screenshots/showcase-player.jpg" alt="Grmemby player screen" width="72%" />
+</p>
+
+> Only the `uuoevery` username on server cards has been replaced with a demo label.
 
 ## Features
 

@@ -9,12 +9,15 @@ Grmemby 是一个开源的 Android 媒体客户端，适用于 Jellyfin/Emby 兼
 ## 界面展示
 
 <p align="center">
-  <img src="docs/screenshots/showcase-home.jpg" alt="Grmemby 首页" width="30%" />
-  <img src="docs/screenshots/showcase-player.jpg" alt="Grmemby 播放器" width="30%" />
-  <img src="docs/screenshots/showcase-servers.jpg" alt="Grmemby 服务器管理" width="30%" />
+  <img src="docs/screenshots/showcase-home.jpg" alt="Grmemby 首页" width="32%" />
+  <img src="docs/screenshots/showcase-servers.jpg" alt="Grmemby 服务器管理" width="32%" />
 </p>
 
-> 上方展示图已使用演示标签替换/遮挡服务器名、用户名、房间号等私有界面信息。
+<p align="center">
+  <img src="docs/screenshots/showcase-player.jpg" alt="Grmemby 播放器" width="72%" />
+</p>
+
+> 仅将服务器卡片中的 `uuoevery` 用户名替换为演示标签。
 
 ## 功能特性
 
