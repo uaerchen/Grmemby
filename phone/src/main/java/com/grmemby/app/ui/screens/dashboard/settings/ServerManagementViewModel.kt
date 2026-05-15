@@ -96,19 +96,26 @@ internal class ServerManagementViewModel(
     }
 
     fun markLastPlayedNow(targets: List<ServerManagementLoadTarget>) {
+        markLastPlayedAt(targets, System.currentTimeMillis())
+    }
+
+    fun markLastPlayedAt(targets: List<ServerManagementLoadTarget>, timestampMs: Long) {
         val normalizedTargets = targets.distinctBy { it.key }
         if (normalizedTargets.isEmpty()) return
-        val now = System.currentTimeMillis()
         val targetByKey = normalizedTargets.associateBy { it.key }
         _uiState.update { current ->
             val updatedEntries = targetByKey.mapValues { (key, target) ->
                 val existing = current.overviews[key] ?: cachedOverviews[key]
+                val latestKnownPlaybackAt = listOfNotNull(
+                    existing?.lastPlayedAtEpochMs,
+                    timestampMs.takeIf { it > 0L }
+                ).maxOrNull()
                 (existing ?: ServerCardOverview(
                     logoAccentArgb = fallbackAccentArgb(target.server),
                     logoUrl = target.server.serverLogoUrl?.takeIf { it.isNotBlank() && !looksLikeBundledDefaultPath(it) },
                     isLoading = false
                 )).copy(
-                    lastPlayedAtEpochMs = now,
+                    lastPlayedAtEpochMs = latestKnownPlaybackAt,
                     isLoading = false
                 )
             }
@@ -142,7 +149,12 @@ internal class ServerManagementViewModel(
                 val hasAnyOverview = currentOverviews[target.key] != null ||
                     cachedOverviews[target.key] != null ||
                     persistedOverviews[target.key] != null
-                previousSignature != targetSignatures[target.key] || !hasAnyOverview
+                // Regression fix: a newly-created page ViewModel starts with no in-memory
+                // signatures. If a valid persisted/static overview already exists, do not
+                // mark every card loading and refetch all network data on page entry. Only
+                // refetch automatically when this live ViewModel sees a signature change, or
+                // when a card has no cached overview at all. Manual refresh still forces load.
+                !hasAnyOverview || (previousSignature != null && previousSignature != targetSignatures[target.key])
             }
         }
 
@@ -207,7 +219,10 @@ internal class ServerManagementViewModel(
                     val fastCard = ServerCardOverview(
                         movieCount = overview?.movieCount ?: previous?.movieCount,
                         seriesCount = overview?.seriesCount ?: previous?.seriesCount,
-                        lastPlayedAtEpochMs = overview?.lastPlayedAtEpochMs ?: previous?.lastPlayedAtEpochMs,
+                        lastPlayedAtEpochMs = listOfNotNull(
+                            overview?.lastPlayedAtEpochMs,
+                            previous?.lastPlayedAtEpochMs
+                        ).maxOrNull(),
                         latencyMs = overview?.latencyMs ?: previous?.latencyMs,
                         isConnected = overview?.isConnected == true || previous?.isConnected == true,
                         logoAccentArgb = previous?.logoAccentArgb ?: fallbackAccent,

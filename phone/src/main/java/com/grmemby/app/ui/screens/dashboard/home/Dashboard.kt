@@ -1347,15 +1347,14 @@ fun Dashboard(
     val currentProfileImageUrl = activeSavedServer?.profileImageUrl ?: persistedHomeSnapshot?.profileImageUrl
     val isEmbyServer = currentServerType.equals("EMBY", ignoreCase = true)
     val disablePosterEnhancers = isEmbyServer && posterEnhancersEnabled
-    var homeSurfaceColorTarget by remember { mutableStateOf(HillsDashboardSurface) }
+    var homeSurfaceColorTarget by remember { mutableStateOf(DashboardPalette.surfaceColor.value) }
     val homeSurfaceColor by animateColorAsState(
         targetValue = homeSurfaceColorTarget,
         animationSpec = tween(durationMillis = 450),
         label = "dashboard_home_surface"
     )
-    LaunchedEffect(homeSurfaceColor) {
+    SideEffect {
         DashboardPalette.updateSurface(homeSurfaceColor)
-        DashboardPalette.updateBottomBarColors(dashboardBottomBarColors(homeSurfaceColor, null))
     }
 
     val dashboardSessionKey = remember(currentServerUrl, currentUsername) {
@@ -1937,7 +1936,8 @@ fun Dashboard(
                             onWatchPartyRoomReady = onNavigateToWatchPartyRoom,
                             onHeroSurfaceColorChange = { surface ->
                                 homeSurfaceColorTarget = surface
-                            }
+                            },
+                            currentSurfaceColor = homeSurfaceColor
                         )
                     }
                 } else {

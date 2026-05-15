@@ -42,7 +42,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -272,13 +271,6 @@ internal fun ServerSwitchDialogsHost(
                 onKeepAliveServers(selectedServers)
                 state.dismissKeepAlive()
             }
-        )
-    }
-
-    keepAliveMessage?.takeIf { it.isNotBlank() }?.let { message ->
-        KeepAliveStatusDialog(
-            message = message,
-            onDismiss = onKeepAliveMessageDismiss
         )
     }
 
@@ -554,9 +546,6 @@ internal fun ServerSwitchDialog(
                                     }
                                 }
                             }
-                        }
-                        if (index < serverGroups.lastIndex) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                         }
                     }
                 }

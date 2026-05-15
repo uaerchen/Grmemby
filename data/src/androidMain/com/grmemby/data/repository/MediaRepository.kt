@@ -2955,8 +2955,30 @@ class MediaRepository(private val context: Context) {
                 Log.w("KeepAlive", "Played-state cleanup nonfatal serverHash=$serverHash itemHash=$itemHash status=${playedStateResponse.code()} originalPlayed=$originalPlayed")
             }
 
+            // Some Emby-compatible servers recreate UserData/LastPlayed after DELETE
+            // PlayedItems. Send a final zero-position UserData write after restoring the
+            // played state so the keepalive probe does not remain as a watched/history row.
+            val finalUserDataResponse = if (!originalPlayed) {
+                api.updateUserItemData(
+                    userId = userId,
+                    itemId = itemId,
+                    request = com.grmemby.data.model.UpdateUserItemDataRequest(
+                        playedPercentage = 0.0,
+                        playbackPositionTicks = 0L,
+                        playCount = 0,
+                        played = false,
+                        itemId = itemId
+                    )
+                )
+            } else {
+                userDataResponse
+            }
+            if (!finalUserDataResponse.isSuccessful) {
+                Log.w("KeepAlive", "Final UserData cleanup nonfatal serverHash=$serverHash itemHash=$itemHash status=${finalUserDataResponse.code()} originalPlayed=$originalPlayed")
+            }
+
             val acceptedByServer = zeroProgressResponse.isSuccessful || zeroStoppedResponse.isSuccessful ||
-                userDataResponse.isSuccessful || playedStateResponse.isSuccessful
+                userDataResponse.isSuccessful || playedStateResponse.isSuccessful || finalUserDataResponse.isSuccessful
             if (!acceptedByServer) {
                 Log.w(
                     "KeepAlive",
@@ -2968,6 +2990,7 @@ class MediaRepository(private val context: Context) {
                 api = api,
                 userId = userId,
                 itemId = itemId,
+                originalPlayed = originalPlayed,
                 serverHash = serverHash,
                 itemHash = itemHash
             )
@@ -2994,6 +3017,7 @@ class MediaRepository(private val context: Context) {
         api: MediaServerApi,
         userId: String,
         itemId: String,
+        originalPlayed: Boolean,
         serverHash: Int,
         itemHash: Int
     ): Result<Unit> {
@@ -3009,7 +3033,9 @@ class MediaRepository(private val context: Context) {
                 Log.w("KeepAlive", "Cleanup item verification failed serverHash=$serverHash itemHash=$itemHash status=${itemResponse.code()}")
                 return Result.failure(Exception("Failed to verify keepalive cleanup item state: ${itemResponse.code()}"))
             }
-            val remainingResumeTicks = itemResponse.body()?.userData?.playbackPositionTicks ?: 0L
+            val itemUserData = itemResponse.body()?.userData
+            val remainingResumeTicks = itemUserData?.playbackPositionTicks ?: 0L
+            val playedMatchesOriginal = itemUserData?.played == originalPlayed
 
             val resumeResponse = api.getResumeItems(
                 userId = userId,
@@ -3023,7 +3049,7 @@ class MediaRepository(private val context: Context) {
                 return Result.failure(Exception("Failed to verify keepalive cleanup resume list: ${resumeResponse.code()}"))
             }
             val stillInResume = resumeResponse.body()?.items.orEmpty().any { resumeItem -> resumeItem.id == itemId }
-            if (remainingResumeTicks <= 0L && !stillInResume) {
+            if (remainingResumeTicks <= 0L && !stillInResume && playedMatchesOriginal) {
                 stableClearCount += 1
                 if (stableClearCount >= 2) {
                     return Result.success(Unit)
@@ -3033,7 +3059,7 @@ class MediaRepository(private val context: Context) {
             }
             Log.w(
                 "KeepAlive",
-                "Cleanup verification retry serverHash=$serverHash itemHash=$itemHash attempt=$attempt resumeTicks=$remainingResumeTicks stillInResume=$stillInResume stableClearCount=$stableClearCount"
+                "Cleanup verification retry serverHash=$serverHash itemHash=$itemHash attempt=$attempt resumeTicks=$remainingResumeTicks stillInResume=$stillInResume playedMatchesOriginal=$playedMatchesOriginal stableClearCount=$stableClearCount"
             )
         }
         return Result.failure(Exception("Keepalive item still appears in Continue Watching after cleanup"))
@@ -3297,6 +3323,15 @@ class MediaRepository(private val context: Context) {
             return true
         }
         if (textLikeErrorResponse) return false
+        if (knownMediaSignature) return true
+        val binaryLookingBody = binaryByteRatio(firstBytes) > 0.08f && firstBytes.size >= 512
+        if (route == "emya" && binaryLookingBody) {
+            // Some EMOS/direct-link providers return a real media byte stream with a
+            // misleading text/plain or octet-stream content type. Once JSON/HTML/error
+            // bodies are rejected above, accept binary-looking provider-route data so
+            // fast direct servers are not marked failed only because of the MIME label.
+            return true
+        }
         if (normalizedContentType.startsWith("text/") ||
             normalizedContentType.contains("json") ||
             normalizedContentType.contains("xml") ||
@@ -3307,7 +3342,6 @@ class MediaRepository(private val context: Context) {
         if (normalizedContentType.startsWith("video/") || normalizedContentType.startsWith("audio/")) {
             return true
         }
-        if (knownMediaSignature) return true
         if (normalizedContentType == "application/mp4" ||
             normalizedContentType == "application/x-matroska" ||
             normalizedContentType == "application/vnd.apple.mpegurl" ||
@@ -3321,7 +3355,7 @@ class MediaRepository(private val context: Context) {
             // read. Text/JSON/HTML errors have already been rejected above, so accept
             // compact binary payloads instead of reporting every keepalive candidate as a
             // fake "non-media" failure.
-            return binaryByteRatio(firstBytes) > 0.08f && firstBytes.size >= 512
+            return binaryLookingBody
         }
         if (route == "hls") {
             return false

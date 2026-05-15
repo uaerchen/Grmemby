@@ -12,8 +12,11 @@ import com.grmemby.data.repository.AuthRepository
 import com.grmemby.data.repository.AuthRepositoryProvider
 import com.grmemby.data.repository.MediaRepositoryProvider
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -24,14 +27,23 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import java.util.concurrent.atomic.AtomicInteger
+
+data class KeepAliveRunResult(
+    val successServerIds: Set<String>,
+    val failedServerIds: Set<String>,
+    val finishedAtEpochMs: Long,
+    val failureReasonsByServerId: Map<String, String> = emptyMap()
+)
 
 data class ServerSwitchUiState(
     val isSwitching: Boolean = false,
     val isRemoving: Boolean = false,
     val isKeepingAccounts: Boolean = false,
     val keepAliveMessage: String? = null,
-    val lastKeepAliveServerIds: Set<String> = emptySet()
+    val lastKeepAliveServerIds: Set<String> = emptySet(),
+    val keepAliveRunningServerIds: Set<String> = emptySet(),
+    val keepAliveFailedAtByServerId: Map<String, Long> = emptyMap(),
+    val keepAliveFailureReasonsByServerId: Map<String, String> = emptyMap()
 ) {
     val isBusy: Boolean get() = isSwitching || isRemoving
 }
@@ -39,13 +51,18 @@ data class ServerSwitchUiState(
 class ServerSwitchViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         private val LAST_KEEP_ALIVE_SERVER_IDS_KEY = stringPreferencesKey("last_keep_alive_server_ids_v1")
+        private const val KEEP_ALIVE_PER_SERVER_TIMEOUT_MS = 115_000L
+        private val sharedUiState = MutableStateFlow(ServerSwitchUiState())
+        private val keepAliveScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        private var keepAliveJob: Job? = null
     }
 
     private val dataStore = DataStoreProvider.getDataStore(application)
     private val authRepository = AuthRepositoryProvider.getInstance(application)
     private val mediaRepository = MediaRepositoryProvider.getInstance(application)
+    private val keepAliveNotifications = KeepAliveNotificationManager(application)
 
-    private val _uiState = MutableStateFlow(ServerSwitchUiState())
+    private val _uiState = sharedUiState
     val uiState: StateFlow<ServerSwitchUiState> = _uiState.asStateFlow()
 
     init {
@@ -104,8 +121,10 @@ class ServerSwitchViewModel(application: Application) : AndroidViewModel(applica
                     mediaRepository.invalidateSessionCaches()
                     mediaRepository.getUserViews()
                     CachedData.clearAllCache()
-                    _uiState.value = ServerSwitchUiState(
-                        lastKeepAliveServerIds = _uiState.value.lastKeepAliveServerIds
+                    _uiState.value = _uiState.value.copy(
+                        isSwitching = false,
+                        isRemoving = false,
+                        keepAliveMessage = null
                     )
                     onSwitchComplete()
                 },
@@ -141,96 +160,117 @@ class ServerSwitchViewModel(application: Application) : AndroidViewModel(applica
     fun keepAliveServers(
         servers: List<AuthRepository.SavedServer>,
         onStarted: () -> Unit = {},
-        onFinished: (String) -> Unit = {}
+        onFinished: (KeepAliveRunResult) -> Unit = {}
     ) {
         val distinctServers = servers
             .filter { it.id.isNotBlank() }
             .distinctBy { it.id }
         if (distinctServers.isEmpty()) return
-        if (_uiState.value.isKeepingAccounts) return
+        if (_uiState.value.isKeepingAccounts || keepAliveJob?.isActive == true) return
 
-        viewModelScope.launch {
-            saveLastKeepAliveServerIds(distinctServers.map { it.id })
-            _uiState.value = _uiState.value.copy(
-                isKeepingAccounts = true,
-                keepAliveMessage = "正在保号 0/${distinctServers.size}：真实播放请求 1 分钟…"
-            )
-            onStarted()
-
-            val completedCount = AtomicInteger(0)
-            val results = mutableListOf<Pair<AuthRepository.SavedServer, Result<String>>>()
-            val batchSize = 5
-            distinctServers.chunked(batchSize).forEachIndexed { batchIndex, batch ->
-                val totalBatches = (distinctServers.size + batchSize - 1) / batchSize
+        val selectedServerIds = distinctServers.map { it.id }.toSet()
+        keepAliveJob = keepAliveScope.launch {
+            try {
+                saveLastKeepAliveServerIds(distinctServers.map { it.id })
                 _uiState.value = _uiState.value.copy(
-                    keepAliveMessage = "正在保号 ${completedCount.get()}/${distinctServers.size}：第 ${batchIndex + 1} 组/$totalBatches，${batch.size} 个服务器同步发起播放并保持 1 分钟…"
+                    isKeepingAccounts = true,
+                    keepAliveMessage = null,
+                    keepAliveRunningServerIds = selectedServerIds,
+                    keepAliveFailedAtByServerId = _uiState.value.keepAliveFailedAtByServerId - selectedServerIds,
+                    keepAliveFailureReasonsByServerId = _uiState.value.keepAliveFailureReasonsByServerId - selectedServerIds
                 )
-                val batchResults = coroutineScope {
-                    val deferredResults = batch.map { savedServer ->
-                        async(Dispatchers.IO, start = CoroutineStart.LAZY) {
+                keepAliveNotifications.showRunning()
+                onStarted()
+
+                // Run the selected servers in one bounded wave. The previous chunked 5-at-a-time
+                // path could leave the UI showing "保号运行中" for multiple minutes when one
+                // chunk stalled; every server now has a hard timeout and the whole visible batch
+                // returns as soon as the slowest selected server reaches that bound.
+                val results = coroutineScope {
+                    distinctServers.map { savedServer ->
+                        async(Dispatchers.IO, start = CoroutineStart.DEFAULT) {
                             val result = try {
-                                val perServerTimeoutMs = 180_000L
-                                withTimeoutOrNull(perServerTimeoutMs) {
+                                withTimeoutOrNull(KEEP_ALIVE_PER_SERVER_TIMEOUT_MS) {
                                     simulateSavedServerPlaybackWithDnsRetry(savedServer)
-                                } ?: Result.failure(Exception("Keepalive timed out after ${perServerTimeoutMs / 1000}s"))
+                                } ?: Result.failure(Exception("Keepalive timed out after ${KEEP_ALIVE_PER_SERVER_TIMEOUT_MS / 1000}s"))
                             } catch (error: CancellationException) {
                                 throw error
                             } catch (error: Exception) {
                                 Result.failure(error)
                             }
-                            val finished = completedCount.incrementAndGet()
-                            _uiState.value = _uiState.value.copy(
-                                keepAliveMessage = "正在保号 $finished/${distinctServers.size}：第 ${batchIndex + 1} 组/$totalBatches，已完成 ${savedServer.serverName}"
-                            )
                             savedServer to result
                         }
-                    }
-                    deferredResults.forEach { deferred -> deferred.start() }
-                    deferredResults.awaitAll()
+                    }.awaitAll()
                 }
-                results += batchResults
-            }
 
-            results.forEach { (server, result) ->
-                val serverHash = server.id.hashCode()
-                result.fold(
-                    onSuccess = {
-                        Log.i("KeepAlive", "Server keepalive success serverHash=$serverHash")
-                    },
-                    onFailure = { error ->
-                        Log.w(
-                            "KeepAlive",
-                            "Server keepalive failed serverHash=$serverHash reason=${error.message ?: error::class.java.simpleName}"
-                        )
+                results.forEach { (server, result) ->
+                    val serverHash = server.id.hashCode()
+                    result.fold(
+                        onSuccess = {
+                            Log.i("KeepAlive", "Server keepalive success serverHash=$serverHash")
+                        },
+                        onFailure = { error ->
+                            Log.w(
+                                "KeepAlive",
+                                "Server keepalive failed serverHash=$serverHash reason=${error.message ?: error::class.java.simpleName}"
+                            )
+                        }
+                    )
+                }
+
+                val successServerIds = results
+                    .filter { it.second.isSuccess }
+                    .map { it.first.id }
+                    .toSet()
+                val failedServerIds = results
+                    .filter { it.second.isFailure }
+                    .map { it.first.id }
+                    .toSet()
+                val failureReasonsByServerId = results
+                    .mapNotNull { (server, result) ->
+                        result.exceptionOrNull()?.let { error -> server.id to error.keepAliveUserMessage() }
                     }
+                    .toMap()
+                val finishedAtEpochMs = System.currentTimeMillis()
+                // A failed keep-alive can still have opened a real playback session before the
+                // server rejected/failed verification. Always drop local home snapshots after
+                // the batch so stale Continue Watching rows from the probe are not kept on 首页.
+                mediaRepository.invalidateSessionCaches(clearHomeSnapshot = true)
+                CachedData.clearAllCache()
+                _uiState.value = _uiState.value.copy(
+                    isKeepingAccounts = false,
+                    keepAliveMessage = null,
+                    keepAliveRunningServerIds = emptySet(),
+                    keepAliveFailedAtByServerId = (_uiState.value.keepAliveFailedAtByServerId - selectedServerIds) +
+                        failedServerIds.associateWith { finishedAtEpochMs },
+                    keepAliveFailureReasonsByServerId = (_uiState.value.keepAliveFailureReasonsByServerId - selectedServerIds) +
+                        failureReasonsByServerId
                 )
+                keepAliveNotifications.showCompleted()
+                onFinished(
+                    KeepAliveRunResult(
+                        successServerIds = successServerIds,
+                        failedServerIds = failedServerIds,
+                        finishedAtEpochMs = finishedAtEpochMs,
+                        failureReasonsByServerId = failureReasonsByServerId
+                    )
+                )
+            } catch (error: CancellationException) {
+                val finishedAtEpochMs = System.currentTimeMillis()
+                _uiState.value = _uiState.value.copy(
+                    isKeepingAccounts = false,
+                    keepAliveMessage = null,
+                    keepAliveRunningServerIds = emptySet(),
+                    keepAliveFailedAtByServerId = (_uiState.value.keepAliveFailedAtByServerId - selectedServerIds) +
+                        selectedServerIds.associateWith { finishedAtEpochMs },
+                    keepAliveFailureReasonsByServerId = (_uiState.value.keepAliveFailureReasonsByServerId - selectedServerIds) +
+                        selectedServerIds.associateWith { "保号任务已取消或超时" }
+                )
+                keepAliveNotifications.showCompleted()
+                throw error
+            } finally {
+                keepAliveJob = null
             }
-
-            val successCount = results.count { it.second.isSuccess }
-            val failedCount = results.size - successCount
-            // A failed keep-alive can still have opened a real playback session before the
-            // server rejected/failed verification. Always drop local home snapshots after
-            // the batch so stale Continue Watching rows from the probe are not kept on 首页.
-            mediaRepository.invalidateSessionCaches(clearHomeSnapshot = true)
-            CachedData.clearAllCache()
-            val failureSummary = results
-                .filter { it.second.isFailure }
-                .take(3)
-                .joinToString(separator = "；") { (server, result) ->
-                    "${server.serverName}：${result.exceptionOrNull()?.keepAliveUserMessage().orEmpty()}"
-                }
-            val message = if (failedCount == 0) {
-                "保号完成：$successCount 个服务器已完成真实播放请求 1 分钟，并已后台清理继续观看"
-            } else if (failureSummary.isNotBlank()) {
-                "保号完成：$successCount 个成功，$failedCount 个失败；失败原因：$failureSummary"
-            } else {
-                "保号完成：$successCount 个成功，$failedCount 个失败；成功项已后台清理继续观看"
-            }
-            _uiState.value = _uiState.value.copy(
-                isKeepingAccounts = false,
-                keepAliveMessage = message
-            )
-            onFinished(message)
         }
     }
 
@@ -287,8 +327,10 @@ class ServerSwitchViewModel(application: Application) : AndroidViewModel(applica
 
             removeResult.fold(
                 onSuccess = {
-                    _uiState.value = ServerSwitchUiState(
-                        lastKeepAliveServerIds = _uiState.value.lastKeepAliveServerIds
+                    _uiState.value = _uiState.value.copy(
+                        isSwitching = false,
+                        isRemoving = false,
+                        keepAliveMessage = null
                     )
                     onRemoveComplete()
                 },
@@ -307,6 +349,7 @@ class ServerSwitchViewModel(application: Application) : AndroidViewModel(applica
 internal fun keepAliveErrorUserMessage(error: Throwable): String {
     val raw = error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
     val cleaned = raw
+        .replace(Regex("https?://[^\\s,;]+"), "[REDACTED_URL]")
         .replace(Regex("(?i)(api[_-]?key|access[_-]?token|token)=([^&\\s]+)")) { match ->
             "${match.groupValues[1]}=[REDACTED]"
         }

@@ -1,7 +1,6 @@
 package com.grmemby.app.ui.screens.player
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -27,7 +26,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.rounded.ClosedCaption
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -434,15 +432,9 @@ private fun TrackRow(
     onSelected: () -> Unit
 ) {
     val containerColor = if (isSelected) {
-        accentColor.copy(alpha = 0.22f)
+        accentColor.copy(alpha = 0.16f)
     } else {
-        Color.White.copy(alpha = 0.07f)
-    }
-
-    val borderColor = if (isSelected) {
-        accentColor.copy(alpha = 0.82f)
-    } else {
-        Color.White.copy(alpha = 0.11f)
+        Color.White.copy(alpha = 0.025f)
     }
 
     Surface(
@@ -451,8 +443,7 @@ private fun TrackRow(
             .clip(RoundedCornerShape(15.dp))
             .clickable(onClick = onSelected),
         shape = RoundedCornerShape(15.dp),
-        color = containerColor,
-        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
+        color = containerColor
     ) {
         Row(
             modifier = Modifier
@@ -465,12 +456,7 @@ private fun TrackRow(
                 modifier = Modifier
                     .size(36.dp)
                     .background(
-                        color = if (isSelected) accentColor.copy(alpha = 0.24f) else Color.White.copy(alpha = 0.07f),
-                        shape = CircleShape
-                    )
-                    .border(
-                        width = 1.dp,
-                        color = if (isSelected) accentColor.copy(alpha = 0.58f) else Color.White.copy(alpha = 0.10f),
+                        color = if (isSelected) accentColor.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.035f),
                         shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -536,11 +522,6 @@ private fun SelectionIndicator(
             .size(22.dp)
             .background(
                 color = if (isSelected) accentColor else Color.Transparent,
-                shape = CircleShape
-            )
-            .border(
-                width = 1.5.dp,
-                color = if (isSelected) accentColor else MaterialTheme.colorScheme.outline,
                 shape = CircleShape
             ),
         contentAlignment = Alignment.Center

@@ -103,8 +103,12 @@ import com.grmemby.app.ui.screens.auth.rememberServerSwitchDialogsState
 import com.grmemby.data.network.canonicalServerUrlKey
 import com.grmemby.data.repository.AuthRepository
 import com.grmemby.data.repository.ServerTransferRepository
+import com.grmemby.shared.playback.PlaybackRefreshSignals
 import kotlinx.coroutines.launch
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -136,12 +140,14 @@ fun ServerManagementScreen(
     val uiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
     val switchUiState by serverSwitchViewModel.uiState.collectAsStateWithLifecycle()
     val overviewUiState by serverManagementViewModel.uiState.collectAsStateWithLifecycle()
+    val latestPlaybackStopEvent by PlaybackRefreshSignals.latestStopEvent.collectAsStateWithLifecycle()
     val dialogsState = rememberServerSwitchDialogsState()
     val authRepository = remember(context) { AuthRepository(context.applicationContext) }
     val transferRepository = remember(context) { ServerTransferRepository(context.applicationContext) }
     val coroutineScope = rememberCoroutineScope()
     var remarkGroup by remember { mutableStateOf<ServerManagementGroup?>(null) }
     var lineGroup by remember { mutableStateOf<ServerManagementGroup?>(null) }
+    var keepAliveFailureDialog by remember { mutableStateOf<Pair<String, String>?>(null) }
     var remarkOverrides by remember { mutableStateOf<Map<String, String?>>(emptyMap()) }
     var showExportDialog by remember { mutableStateOf(false) }
     var showImportSourceDialog by remember { mutableStateOf(false) }
@@ -155,6 +161,7 @@ fun ServerManagementScreen(
     var exportOptions by remember { mutableStateOf(ServerTransferRepository.TransferOptions(credentials = false)) }
     var importOptions by remember { mutableStateOf(ServerTransferRepository.TransferOptions(credentials = false)) }
     var exportChannel by remember { mutableStateOf(TransferChannel.LOCAL_FILE) }
+    var handledPlaybackStopTimestamp by remember { mutableStateOf<Long?>(null) }
 
     fun runTransfer(
         onSuccess: (ServerTransferRepository.TransferResult) -> Unit = {},
@@ -291,7 +298,24 @@ fun ServerManagementScreen(
     val isOverviewRefreshing = overviewUiState.overviews.values.any { it.isLoading }
 
     LaunchedEffect(overviewTargets) {
-        serverManagementViewModel.load(overviewTargets)
+        if (overviewTargets.isNotEmpty()) {
+            serverManagementViewModel.refresh(overviewTargets)
+        } else {
+            serverManagementViewModel.load(overviewTargets)
+        }
+    }
+
+    LaunchedEffect(latestPlaybackStopEvent, overviewTargets, uiState.activeServerId) {
+        val stopEvent = latestPlaybackStopEvent ?: return@LaunchedEffect
+        val eventTimestamp = stopEvent.timestampMs
+        if (handledPlaybackStopTimestamp == eventTimestamp) return@LaunchedEffect
+        val activeServerId = uiState.activeServerId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        val playbackTargets = overviewTargets.filter { it.server.id == activeServerId }
+        if (playbackTargets.isNotEmpty()) {
+            serverManagementViewModel.markLastPlayedAt(playbackTargets, eventTimestamp)
+            serverManagementViewModel.refresh(playbackTargets)
+            handledPlaybackStopTimestamp = eventTimestamp
+        }
     }
 
     val inheritedBackdropBrush = remember(backgroundColor) { inheritedPageBrush(backgroundColor) }
@@ -355,10 +379,18 @@ fun ServerManagementScreen(
                             items = serverGroups,
                             key = { it.key }
                         ) { group ->
+                            val keepAliveFailedServer = group.users.maxByOrNull { savedServer ->
+                                switchUiState.keepAliveFailedAtByServerId[savedServer.id] ?: Long.MIN_VALUE
+                            }?.takeIf { savedServer -> switchUiState.keepAliveFailedAtByServerId.containsKey(savedServer.id) }
+                            val keepAliveFailureReason = keepAliveFailedServer?.id
+                                ?.let { switchUiState.keepAliveFailureReasonsByServerId[it] }
                             ServerPosterCard(
                                 group = group,
                                 overview = overviewUiState.overviews[group.key],
                                 isSwitching = switchUiState.isSwitching && group.activeUser != null,
+                                isKeepAliveRunning = group.users.any { it.id in switchUiState.keepAliveRunningServerIds },
+                                keepAliveFailedAt = keepAliveFailedServer?.id?.let { switchUiState.keepAliveFailedAtByServerId[it] },
+                                keepAliveFailureReason = keepAliveFailureReason,
                                 surfaceColor = backgroundColor,
                                 onClick = {
                                     val target = group.activeUser ?: group.primaryUser
@@ -380,6 +412,9 @@ fun ServerManagementScreen(
                                 },
                                 onLineClick = { lineGroup = group },
                                 onRemarkClick = { remarkGroup = group },
+                                onKeepAliveFailureClick = { reason ->
+                                    keepAliveFailureDialog = group.serverName.ifBlank { "服务器" } to reason
+                                },
                                 onEditClick = {
                                     val target = group.activeUser ?: group.primaryUser
                                     onEditUser(target.serverUrl, target.serverName, target.username)
@@ -393,6 +428,32 @@ fun ServerManagementScreen(
                 }
             }
         }
+    }
+
+    keepAliveFailureDialog?.let { (serverName, reason) ->
+        AlertDialog(
+            onDismissRequest = { keepAliveFailureDialog = null },
+            title = { Text("保号失败原因") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = serverName,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = reason,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { keepAliveFailureDialog = null }) {
+                    Text("知道了")
+                }
+            }
+        )
     }
 
     remarkGroup?.let { group ->
@@ -558,13 +619,21 @@ fun ServerManagementScreen(
             )
         },
         onKeepAliveServers = { selectedServers ->
-            val selectedIds = selectedServers.map { it.id }.toSet()
-            val keepAliveTargets = overviewTargets.filter { it.server.id in selectedIds }
             serverSwitchViewModel.keepAliveServers(
                 servers = selectedServers,
-                onFinished = {
-                    serverManagementViewModel.markLastPlayedNow(keepAliveTargets)
-                    serverManagementViewModel.refresh(keepAliveTargets)
+                onFinished = { result ->
+                    val successTargets = serverGroups.mapNotNull { group ->
+                        val successServer = group.users.firstOrNull { it.id in result.successServerIds }
+                            ?: return@mapNotNull null
+                        ServerManagementLoadTarget(
+                            key = group.key,
+                            server = successServer
+                        )
+                    }
+                    if (successTargets.isNotEmpty()) {
+                        serverManagementViewModel.markLastPlayedAt(successTargets, result.finishedAtEpochMs)
+                        serverManagementViewModel.refresh(successTargets)
+                    }
                 }
             )
         },
@@ -1040,32 +1109,7 @@ private fun Modifier.settingsTopActionSurface(
     surfaceColor: Color,
     shape: RoundedCornerShape
 ): Modifier {
-    val dark = surfaceColor.isDarkSurface()
-    return this
-        .shadow(
-            elevation = 16.dp,
-            shape = shape,
-            clip = false,
-            ambientColor = Color.Black.copy(alpha = 0.18f),
-            spotColor = Color.Black.copy(alpha = 0.26f)
-        )
-        .clip(shape)
-        .background(Color(0x1A1C1C1E), shape)
-        .background(
-            Brush.verticalGradient(
-                colors = listOf(
-                    Color.White.copy(alpha = if (dark) 0.075f else 0.12f),
-                    Color.White.copy(alpha = if (dark) 0.022f else 0.05f),
-                    Color.Black.copy(alpha = if (dark) 0.045f else 0.02f)
-                )
-            ),
-            shape
-        )
-        .border(
-            width = 0.6.dp,
-            color = Color.Black.copy(alpha = if (dark) 0.42f else 0.24f),
-            shape = shape
-        )
+    return this.clip(shape)
 }
 
 @Composable
@@ -1103,10 +1147,14 @@ private fun ServerPosterCard(
     group: ServerManagementGroup,
     overview: ServerCardOverview?,
     isSwitching: Boolean,
+    isKeepAliveRunning: Boolean,
+    keepAliveFailedAt: Long?,
+    keepAliveFailureReason: String?,
     surfaceColor: Color,
     onClick: () -> Unit,
     onLineClick: () -> Unit,
     onRemarkClick: () -> Unit,
+    onKeepAliveFailureClick: (String) -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
@@ -1130,10 +1178,18 @@ private fun ServerPosterCard(
     val lastPlayedText = overview?.lastPlayedAtEpochMs
         ?.let(::relativeLastPlayedText)
         ?: stringResource(R.string.server_management_recent_never)
-    val timeText = if (active) {
-        stringResource(R.string.server_management_watching_time, lastPlayedText)
-    } else {
-        lastPlayedText
+    val keepAliveFailureText = keepAliveFailedAt?.let { "保号失败 ${keepAliveClockText(it)}" }
+    val timeText = when {
+        isKeepAliveRunning -> "保号运行中"
+        keepAliveFailureText != null -> keepAliveFailureText
+        active -> stringResource(R.string.server_management_watching_time, lastPlayedText)
+        else -> lastPlayedText
+    }
+    val timeTextColor = when {
+        isKeepAliveRunning -> activeTextColor
+        keepAliveFailureText != null -> Color(0xFFFF7A7A)
+        active -> activeTextColor
+        else -> tertiaryTextColor
     }
     val connected = overview?.isConnected == true
     val latencyText = overview?.latencyMs?.let { "${it}ms" }
@@ -1246,11 +1302,15 @@ private fun ServerPosterCard(
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontSize = 10.5.sp,
                         lineHeight = 12.sp,
-                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
+                        fontWeight = if (active || isKeepAliveRunning || keepAliveFailureText != null) FontWeight.SemiBold else FontWeight.Normal
                     ),
-                    color = if (active) activeTextColor else tertiaryTextColor,
+                    color = timeTextColor,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.clickable(
+                        enabled = keepAliveFailureText != null,
+                        onClick = { onKeepAliveFailureClick(keepAliveFailureReason ?: "保号失败，暂无更多原因。请重试后查看日志。") }
+                    )
                 )
             }
         }
@@ -1872,6 +1932,11 @@ private fun cacheTransferImportUri(context: Context, uri: Uri): Uri {
 }
 
 private fun Color.isDarkSurface(): Boolean = luminance() < 0.46f
+
+private fun keepAliveClockText(timestampMs: Long): String {
+    val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
+    return formatter.format(Date(timestampMs))
+}
 
 private fun relativeLastPlayedText(lastPlayedAt: Long): String {
     val elapsedMs = (System.currentTimeMillis() - lastPlayedAt).coerceAtLeast(0L)

@@ -47,10 +47,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -61,6 +60,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -112,9 +112,11 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import java.util.concurrent.ConcurrentHashMap
 
 internal object CachedData {
     var featuredItems: List<BaseItemDto> = emptyList()
@@ -154,8 +156,81 @@ private data class FeatureCardImages(
 
 private val HillsHomeSurface = Color(0xFF2C3650)
 private val HillsHeroBlend = Color(0xFF20283C)
-private val HillsHeroWarmSurface = Color(0xFF4A1F1C)
 private val HillsHeroBlueSurface = Color(0xFF2C3650)
+
+private object FeatureHeroSurfaceCache {
+    private val colors = ConcurrentHashMap<String, Color>()
+
+    fun get(itemId: String, versionKey: String?): Color? {
+        return colors[cacheKey(itemId, versionKey)] ?: colors[itemId]
+    }
+
+    fun put(itemId: String, versionKey: String?, color: Color) {
+        colors[cacheKey(itemId, versionKey)] = color
+        colors[itemId] = color
+    }
+
+    private fun cacheKey(itemId: String, versionKey: String?): String {
+        return if (versionKey.isNullOrBlank()) itemId else "$itemId|$versionKey"
+    }
+}
+
+private data class FeatureHeroCarouselFrame(
+    val absoluteIndex: Int,
+    val itemIndex: Int,
+    val itemKey: String?,
+    val scrollOffset: Int
+)
+
+private object FeatureHeroCarouselFrameCache {
+    private val frames = ConcurrentHashMap<String, FeatureHeroCarouselFrame>()
+
+    fun initialFrame(
+        category: String,
+        itemKeys: List<String>,
+        infiniteStartIndex: Int
+    ): FeatureHeroCarouselFrame {
+        val count = itemKeys.size
+        if (count <= 0) {
+            return FeatureHeroCarouselFrame(
+                absoluteIndex = 0,
+                itemIndex = 0,
+                itemKey = null,
+                scrollOffset = 0
+            )
+        }
+
+        val previousFrame = frames[category]
+        val restoredItemIndex = previousFrame?.itemKey
+            ?.let { key -> itemKeys.indexOf(key).takeIf { it >= 0 } }
+            ?: previousFrame?.itemIndex?.let { positiveModulo(it, count) }
+            ?: 0
+
+        return FeatureHeroCarouselFrame(
+            absoluteIndex = infiniteStartIndex + restoredItemIndex,
+            itemIndex = restoredItemIndex,
+            itemKey = itemKeys.getOrNull(restoredItemIndex),
+            scrollOffset = previousFrame?.scrollOffset?.coerceAtLeast(0) ?: 0
+        )
+    }
+
+    fun save(
+        category: String,
+        absoluteIndex: Int,
+        scrollOffset: Int,
+        itemKeys: List<String>
+    ) {
+        val count = itemKeys.size
+        if (count <= 0) return
+        val itemIndex = positiveModulo(absoluteIndex, count)
+        frames[category] = FeatureHeroCarouselFrame(
+            absoluteIndex = absoluteIndex,
+            itemIndex = itemIndex,
+            itemKey = itemKeys.getOrNull(itemIndex),
+            scrollOffset = scrollOffset.coerceAtLeast(0)
+        )
+    }
+}
 
 private fun Color.hillsDarker(factor: Float = 0.72f): Color {
     return Color(
@@ -168,6 +243,13 @@ private fun Color.hillsDarker(factor: Float = 0.72f): Color {
 
 private fun positiveModulo(value: Int, divisor: Int): Int {
     return if (divisor <= 0) 0 else ((value % divisor) + divisor) % divisor
+}
+
+private fun featureHeroVersionKey(item: BaseItemDto, itemId: String): String? {
+    return listOfNotNull(
+        item.imageTagFor(imageType = "Backdrop", targetItemId = itemId),
+        item.imageTagFor(imageType = "Logo", targetItemId = itemId)
+    ).distinct().takeIf { it.isNotEmpty() }?.joinToString("|")
 }
 
 private fun hillsSurfaceForHeroItem(item: BaseItemDto): Color {
@@ -183,13 +265,18 @@ private fun hillsSurfaceForHeroItem(item: BaseItemDto): Color {
 
     return when {
         listOf("奇幻", "科幻", "fantasy", "sci-fi", "science fiction", "xianxia").any { it in text } -> HillsHeroBlueSurface
-        listOf("动作", "冒险", "action", "adventure", "crime", "thriller").any { it in text } -> HillsHeroWarmSurface
+        // Avoid the old genre-only warm/red placeholder. When returning from a
+        // detail/settings page the carousel is recreated before palette
+        // extraction finishes; using red here produced a one-frame top/bottom
+        // immersive-color split that was neither the poster color nor the page
+        // surface. Keep fallback surfaces neutral and let the image-derived
+        // palette replace them as soon as it is cached.
+        listOf("动作", "冒险", "action", "adventure", "crime", "thriller").any { it in text } -> HillsHeroBlueSurface
         listOf("动画", "anime", "animation").any { it in text } -> Color(0xFF293956)
         listOf("爱情", "romance", "drama", "剧情").any { it in text } -> Color(0xFF32314F)
         listOf("纪录", "documentary").any { it in text } -> Color(0xFF263C3A)
         else -> {
             val palette = listOf(
-                Color(0xFF4A1F1C),
                 Color(0xFF2C3650),
                 Color(0xFF273F46),
                 Color(0xFF392B4E),
@@ -290,6 +377,7 @@ fun FeatureTab(
     onCategorySelected: (String) -> Unit = {},
     onWatchPartyRoomReady: () -> Unit = {},
     onHeroSurfaceColorChange: (Color) -> Unit = {},
+    currentSurfaceColor: Color = HillsHomeSurface,
     refreshTrigger: Int = 0
 ) {
     val context = LocalContext.current
@@ -327,8 +415,6 @@ fun FeatureTab(
         mutableStateOf<String?>(persistedHomeSnapshot?.profileImageUrl)
     }
 
-    val featuredRowState = remember(selectedCategory) { LazyListState() }
-    val featuredFlingBehavior = rememberSnapFlingBehavior(lazyListState = featuredRowState)
     val imageCacheByItemId = remember { mutableStateMapOf<String, FeatureCardImages>() }
     var stableFeaturedItems by remember(selectedCategory) { mutableStateOf<List<BaseItemDto>>(emptyList()) }
     val metadataQualifiedFeaturedItems = remember(featuredItems) {
@@ -403,11 +489,28 @@ fun FeatureTab(
             metadataQualifiedFeaturedItems.value.isNotEmpty() &&
             resolvedFeaturedItems.value.isEmpty()
     }
-    val infiniteStartIndex = remember(featuredKeys) {
+    val featuredKeysSignature = remember(featuredKeys) {
+        featuredKeys.joinToString(separator = "\u001F")
+    }
+    val infiniteStartIndex = remember(featuredKeysSignature) {
         if (featuredKeys.isEmpty()) 0 else (Int.MAX_VALUE / 2) - ((Int.MAX_VALUE / 2) % featuredKeys.size)
     }
+    val initialHeroCarouselFrame = remember(selectedCategory, featuredKeysSignature, infiniteStartIndex) {
+        FeatureHeroCarouselFrameCache.initialFrame(
+            category = selectedCategory,
+            itemKeys = featuredKeys,
+            infiniteStartIndex = infiniteStartIndex
+        )
+    }
+    val featuredRowState = remember(selectedCategory, featuredKeysSignature) {
+        LazyListState(
+            firstVisibleItemIndex = initialHeroCarouselFrame.absoluteIndex,
+            firstVisibleItemScrollOffset = initialHeroCarouselFrame.scrollOffset
+        )
+    }
+    val featuredFlingBehavior = rememberSnapFlingBehavior(lazyListState = featuredRowState)
     var autoScroll by rememberSaveable(selectedCategory) { mutableStateOf(false) }
-    var hasSeededCarousel by rememberSaveable(selectedCategory) { mutableStateOf(false) }
+    var hasSeededCarousel by rememberSaveable(selectedCategory, featuredKeysSignature) { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
     val heroHeight = (configuration.screenHeightDp.dp * 0.58f).coerceIn(390.dp, 430.dp)
     val activeHeroIndex by remember(featuredRowState, resolvedFeaturedItems.value) {
@@ -416,20 +519,36 @@ fun FeatureTab(
             if (count == 0) 0 else positiveModulo(featuredRowState.firstVisibleItemIndex, count)
         }
     }
-    val activeHeroSurfaceTarget by remember(resolvedFeaturedItems.value, activeHeroIndex, imageCacheByItemId) {
+    val activeHeroSurfaceTarget by remember(
+        resolvedFeaturedItems.value,
+        activeHeroIndex,
+        imageCacheByItemId,
+        currentSurfaceColor
+    ) {
         derivedStateOf {
             val item = resolvedFeaturedItems.value.getOrNull(activeHeroIndex)
             val itemId = item?.id
-            itemId?.let { imageCacheByItemId[it]?.surfaceColor }
-                ?: item?.let(::hillsSurfaceForHeroItem)
-                ?: HillsHomeSurface
+            val resolvedImageSurface = itemId?.let { id ->
+                val versionKey = item?.let { featureHeroVersionKey(it, id) }
+                imageCacheByItemId[id]?.surfaceColor
+                    ?: FeatureHeroSurfaceCache.get(id, versionKey)
+            }
+
+            when {
+                resolvedImageSurface != null -> resolvedImageSurface
+                item == null -> currentSurfaceColor
+                // If the hero has a real backdrop but its palette/image cache is
+                // not ready yet, keep the already-painted dashboard surface.
+                // Returning a genre-only placeholder here (red before, blue
+                // after the previous fix) is exactly what creates the visible
+                // one-frame split between the status/navigation background and
+                // the actual hero after navigating back to Home.
+                hasFeatureHeroAssets(item) -> currentSurfaceColor
+                else -> hillsSurfaceForHeroItem(item)
+            }
         }
     }
-    val activeHeroSurface by animateColorAsState(
-        targetValue = activeHeroSurfaceTarget,
-        animationSpec = tween(durationMillis = 450),
-        label = "hills_home_surface"
-    )
+    val activeHeroSurface = currentSurfaceColor
 
     LaunchedEffect(activeHeroSurfaceTarget) {
         onHeroSurfaceColorChange(activeHeroSurfaceTarget)
@@ -481,9 +600,39 @@ fun FeatureTab(
         }
     }
 
+    LaunchedEffect(featuredRowState, featuredKeysSignature, selectedCategory) {
+        if (featuredKeys.isEmpty()) return@LaunchedEffect
+        snapshotFlow {
+            featuredRowState.firstVisibleItemIndex to featuredRowState.firstVisibleItemScrollOffset
+        }.collect { (index, offset) ->
+            FeatureHeroCarouselFrameCache.save(
+                category = selectedCategory,
+                absoluteIndex = index,
+                scrollOffset = offset,
+                itemKeys = featuredKeys
+            )
+        }
+    }
+
+    DisposableEffect(featuredRowState, featuredKeysSignature, selectedCategory) {
+        onDispose {
+            FeatureHeroCarouselFrameCache.save(
+                category = selectedCategory,
+                absoluteIndex = featuredRowState.firstVisibleItemIndex,
+                scrollOffset = featuredRowState.firstVisibleItemScrollOffset,
+                itemKeys = featuredKeys
+            )
+        }
+    }
+
     LaunchedEffect(featuredKeys, isLoading, selectedCategory) {
         if (isLoading || resolvedFeaturedItems.value.size <= 1 || hasSeededCarousel) return@LaunchedEffect
-        runCatching { featuredRowState.scrollToItem(infiniteStartIndex) }
+        runCatching {
+            featuredRowState.scrollToItem(
+                index = initialHeroCarouselFrame.absoluteIndex,
+                scrollOffset = initialHeroCarouselFrame.scrollOffset
+            )
+        }
         hasSeededCarousel = true
     }
 
@@ -494,10 +643,7 @@ fun FeatureTab(
         coroutineScope {
             metadataQualifiedFeaturedItems.value.forEach { item ->
                 val itemId = item.id ?: return@forEach
-                val versionKey = listOfNotNull(
-                    item.imageTagFor(imageType = "Backdrop", targetItemId = itemId),
-                    item.imageTagFor(imageType = "Logo", targetItemId = itemId)
-                ).distinct().takeIf { it.isNotEmpty() }?.joinToString("|")
+                val versionKey = featureHeroVersionKey(item, itemId)
                 val cachedImages = imageCacheByItemId[itemId]
                 if (cachedImages != null && cachedImages.versionKey == versionKey) return@forEach
 
@@ -528,6 +674,7 @@ fun FeatureTab(
                     )
                     val surfaceColor = extractHillsSurfaceColorFromImageUrl(paletteBackdropUrl)
                         ?: hillsSurfaceForHeroItem(item)
+                    FeatureHeroSurfaceCache.put(itemId, versionKey, surfaceColor)
                     val backdropUrl = mediaRepository.getImageUrlString(
                         itemId = itemId,
                         imageType = "Backdrop",
@@ -1040,7 +1187,7 @@ internal fun WatchPartyActionMenu(
         GlassDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            minWidth = 190.dp,
+            minWidth = if (activeSession == null) 156.dp else 218.dp,
             dark = true,
             surfaceColor = surfaceColor
         ) {

@@ -163,7 +163,7 @@ fun GlassDropdownMenu(
                 menuBorder,
                 shape
             )
-            .padding(8.dp),
+            .padding(horizontal = 5.dp, vertical = 6.dp),
         properties = PopupProperties(focusable = true),
         shape = shape,
         containerColor = Color.Transparent,
@@ -199,16 +199,16 @@ fun GlassDropdownMenuItem(
     val rowBackground = if (selected) {
         Brush.horizontalGradient(
             colors = listOf(
-                blendGlassColor(dynamicBase, selectedMix, 0.42f).copy(alpha = if (dark) 0.30f else 0.22f),
-                blendGlassColor(dynamicBase, selectedMix, 0.25f).copy(alpha = if (dark) 0.18f else 0.12f),
-                blendGlassColor(dynamicBase, Color.White, 0.06f).copy(alpha = if (dark) 0.10f else 0.07f)
+                blendGlassColor(dynamicBase, selectedMix, 0.36f).copy(alpha = if (dark) 0.22f else 0.18f),
+                blendGlassColor(dynamicBase, selectedMix, 0.18f).copy(alpha = if (dark) 0.12f else 0.09f),
+                blendGlassColor(dynamicBase, Color.White, 0.04f).copy(alpha = if (dark) 0.06f else 0.05f)
             )
         )
     } else {
         Brush.horizontalGradient(
             colors = listOf(
-                blendGlassColor(dynamicBase, Color.White, if (dark) 0.18f else 0.34f).copy(alpha = if (dark) 0.13f else 0.20f),
-                blendGlassColor(dynamicBase, Color.White, if (dark) 0.08f else 0.20f).copy(alpha = if (dark) 0.06f else 0.10f)
+                blendGlassColor(dynamicBase, Color.White, if (dark) 0.08f else 0.18f).copy(alpha = if (dark) 0.035f else 0.055f),
+                Color.Transparent
             )
         )
     }
@@ -217,19 +217,14 @@ fun GlassDropdownMenuItem(
             .fillMaxWidth()
             .clip(GlassOptionShape)
             .background(rowBackground)
-            .border(
-                width = 1.dp,
-                color = if (selected) selectedTint.copy(alpha = 0.34f) else blendGlassColor(dynamicBase, Color.White, if (dark) 0.18f else 0.34f).copy(alpha = if (dark) 0.10f else 0.20f),
-                shape = GlassOptionShape
-            )
             .clickable(
                 enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick
             )
-            .padding(horizontal = 13.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(11.dp),
+            .padding(horizontal = 11.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (leadingIcon != null) {
@@ -277,23 +272,18 @@ fun GlassOptionContainer(
                 if (selected) {
                     Brush.horizontalGradient(
                         listOf(
-                            blendGlassColor(dynamicBase, selectedMix, 0.38f).copy(alpha = if (dark) 0.24f else 0.20f),
-                            blendGlassColor(dynamicBase, Color.White, if (dark) 0.18f else 0.34f).copy(alpha = if (dark) 0.10f else 0.16f)
+                            blendGlassColor(dynamicBase, selectedMix, 0.34f).copy(alpha = if (dark) 0.20f else 0.16f),
+                            blendGlassColor(dynamicBase, Color.White, if (dark) 0.12f else 0.24f).copy(alpha = if (dark) 0.07f else 0.10f)
                         )
                     )
                 } else {
                     Brush.verticalGradient(
                         listOf(
-                            blendGlassColor(dynamicBase, Color.White, if (dark) 0.20f else 0.42f).copy(alpha = if (dark) 0.16f else 0.24f),
-                            blendGlassColor(dynamicBase, Color.Black, if (dark) 0.16f else 0.02f).copy(alpha = if (dark) 0.10f else 0.10f)
+                            blendGlassColor(dynamicBase, Color.White, if (dark) 0.08f else 0.18f).copy(alpha = if (dark) 0.04f else 0.06f),
+                            Color.Transparent
                         )
                     )
                 }
-            )
-            .border(
-                1.dp,
-                blendGlassColor(dynamicBase, Color.White, if (dark) 0.34f else 0.52f).copy(alpha = if (dark) 0.16f else 0.26f),
-                GlassOptionShape
             ),
         content = { content() }
     )

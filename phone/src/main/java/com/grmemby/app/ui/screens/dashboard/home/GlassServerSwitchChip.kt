@@ -15,8 +15,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Storage
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -27,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -51,6 +55,7 @@ import com.grmemby.data.repository.AuthRepository
 internal fun GlassServerSwitchChip(
     serverName: String?,
     modifier: Modifier = Modifier,
+    expanded: Boolean = false,
     surfaceColor: Color,
     onClick: () -> Unit
 ) {
@@ -58,6 +63,10 @@ internal fun GlassServerSwitchChip(
         ?: stringResource(R.string.dashboard_server_fallback)
     val shape = RoundedCornerShape(100.dp)
     val chipTextColor = Color(0xFFF2F2F7)
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        label = "server_switch_arrow"
+    )
 
     Row(
         modifier = modifier
@@ -95,11 +104,13 @@ internal fun GlassServerSwitchChip(
             modifier = Modifier.weight(1f, fill = false)
         )
         Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = "⌄",
-            color = chipTextColor.copy(alpha = 0.72f),
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp
+        Icon(
+            imageVector = Icons.Rounded.KeyboardArrowDown,
+            contentDescription = null,
+            tint = Color(0x99EBEBF5),
+            modifier = Modifier
+                .size(18.dp)
+                .graphicsLayer(rotationZ = arrowRotation)
         )
     }
 }
@@ -136,6 +147,7 @@ internal fun GlassServerSwitchDropdown(
     Box(modifier = modifier) {
         GlassServerSwitchChip(
             serverName = serverName,
+            expanded = expanded,
             surfaceColor = surfaceColor,
             onClick = {
                 if (!enabled) return@GlassServerSwitchChip
